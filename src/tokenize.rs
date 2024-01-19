@@ -1,13 +1,16 @@
-use core::f64;
+use core::panic;
+use std::char;
 use std::vec::IntoIter;
 use std::{iter::Peekable, vec};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     LParen,
     RParen,
     Number(f64),
     Symbol(String),
+    Boolean(bool),
+    Str(String),
 }
 
 impl Token {
@@ -20,13 +23,35 @@ impl Token {
     }
 }
 
-trait SoftIterator<T: Iterator> {
+trait TokenIterator<T: Iterator> {
+    fn advance_to_token(self) -> Self
+    where
+        T::Item: PartialEq<char>;
+
     fn take_until<F>(&mut self, pred: F) -> IntoIter<T::Item>
     where
         F: Fn(&T::Item) -> bool;
+
+    fn parse_first_if(&mut self, cmp: char) -> Option<Token>
+    where
+        T: Iterator<Item = char>;
+
+    fn take_first_if(&mut self, cmp: char) -> Option<char>
+    where
+        T: Iterator<Item = char>;
 }
 
-impl<T: Iterator> SoftIterator<T> for Peekable<T> {
+impl<T: Iterator> TokenIterator<T> for Peekable<T> {
+    fn advance_to_token(mut self) -> Self
+    where
+        T::Item: PartialEq<char>,
+    {
+        match self.next_if(|c| c == &' ' || c == &'\n') {
+            Some(_) => self.advance_to_token(),
+            None => self,
+        }
+    }
+
     fn take_until<F>(&mut self, pred: F) -> IntoIter<T::Item>
     where
         F: Fn(&T::Item) -> bool,
@@ -39,16 +64,34 @@ impl<T: Iterator> SoftIterator<T> for Peekable<T> {
 
         new.into_iter()
     }
+
+    fn parse_first_if(&mut self, cmp: char) -> Option<Token>
+    where
+        T: Iterator<Item = char>,
+    {
+        let token = self.next_if(|c| c == &cmp)?;
+        Some(Token::find(token))
+    }
+
+    fn take_first_if(&mut self, cmp: char) -> Option<char>
+    where
+        T: Iterator<Item = char>,
+    {
+        let char = self.next_if(|c| c == &cmp)?;
+        Some(char)
+    }
 }
 
 pub fn tokenize<T>(iter: Peekable<T>, mut tokens: Vec<Token>) -> Vec<Token>
 where
     T: Iterator<Item = char>,
 {
-    let mut iter = advance_whitespace(iter);
+    let mut iter = iter.advance_to_token();
 
     match parse_lparen(&mut iter)
         .or_else(|| parse_rparen(&mut iter))
+        .or_else(|| parse_bool(&mut iter))
+        .or_else(|| parse_string(&mut iter))
         .or_else(|| parse_symbol(&mut iter))
     {
         Some(token) => {
@@ -59,37 +102,50 @@ where
     };
 }
 
-fn advance_whitespace<T>(mut iter: Peekable<T>) -> Peekable<T>
-where
-    T: Iterator<Item = char>,
-{
-    match iter.next_if(|c| c == &' ' || c == &'\n') {
-        Some(_) => advance_whitespace(iter),
-        None => iter,
-    }
-}
-
 fn parse_lparen<T>(iter: &mut Peekable<T>) -> Option<Token>
 where
     T: Iterator<Item = char>,
 {
-    parse_first_char(iter, '(')
+    iter.parse_first_if('(')
 }
 
 fn parse_rparen<T>(iter: &mut Peekable<T>) -> Option<Token>
 where
     T: Iterator<Item = char>,
 {
-    parse_first_char(iter, ')')
+    iter.parse_first_if(')')
+}
+
+fn parse_bool<T>(iter: &mut Peekable<T>) -> Option<Token>
+where
+    T: Iterator<Item = char>,
+{
+    iter.take_first_if('#')?;
+    match iter.next() {
+        Some('t') => Some(Token::Boolean(true)),
+        Some('f') => Some(Token::Boolean(false)),
+        Some(c) => panic!("Expected #t or #f, got #{c}"),
+        None => panic!("Expected #t or #f, got nothing"),
+    }
+}
+
+fn parse_string<T>(iter: &mut Peekable<T>) -> Option<Token>
+where
+    T: Iterator<Item = char>,
+{
+    iter.take_first_if('"')?;
+
+    let value: String = iter.take_until(|c| c != &'"').collect();
+    iter.next(); //skip remaining quote
+
+    Some(Token::Str(value))
 }
 
 fn parse_symbol<T>(iter: &mut Peekable<T>) -> Option<Token>
 where
     T: Iterator<Item = char>,
 {
-    if !iter.peek().is_some() {
-        return None;
-    }
+    iter.peek()?;
 
     let value: String = iter
         .take_until(|c| c != &' ' && c != &'\n' && c != &')' && c != &'(')
@@ -106,21 +162,14 @@ fn parse_number(val: &str) -> Option<Token> {
     }
 }
 
-fn parse_first_char<T>(iter: &mut Peekable<T>, cmp: char) -> Option<Token>
-where
-    T: Iterator<Item = char>,
-{
-    let token = iter.next_if(|c| c == &cmp)?;
-    Some(Token::find(token))
-}
-
 #[cfg(test)]
 mod test {
+
     use super::{Token, *};
 
     #[test]
     fn test1() {
-        let scm = "  (+ 1(+ 2  3)  2)   ";
+        let scm = format!(r##"  (+ 1(+ 2  3)  2 "lolz")"omg"   (#t #f)"##);
         let res = vec![
             Token::LParen,
             Token::Symbol("+".to_string()),
@@ -131,6 +180,12 @@ mod test {
             Token::Number(3.0),
             Token::RParen,
             Token::Number(2.0),
+            Token::Str("lolz".to_string()),
+            Token::RParen,
+            Token::Str("omg".to_string()),
+            Token::LParen,
+            Token::Boolean(true),
+            Token::Boolean(false),
             Token::RParen,
         ];
         let tokens = tokenize(scm.chars().peekable(), vec![]);
