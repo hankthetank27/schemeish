@@ -3,22 +3,24 @@ use std::error::Error;
 use std::fs;
 use std::process;
 
-mod tokenize;
-use tokenize::tokenize;
+use rsscheme::lexer::tokenize;
 
 fn main() {
-    let args = env::args();
+    let mut args = env::args();
 
-    let file = read(args).unwrap_or_else(|err| {
+    let file = read(&mut args).unwrap_or_else(|err| {
         eprint!("{err}");
         process::exit(1);
     });
 
-    let tokens = tokenize(file.chars().peekable(), vec![]);
+    let tokens = tokenize(&file);
     dbg!(tokens);
 }
 
-fn read(mut args: impl Iterator<Item = String>) -> Result<String, Box<dyn Error>> {
+fn read<T>(args: &mut T) -> Result<String, Box<dyn Error>>
+where
+    T: Iterator<Item = String>,
+{
     args.next();
 
     let path = match args.next() {
