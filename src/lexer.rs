@@ -2,7 +2,7 @@ use std::char;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     LParen,
     RParen,
@@ -58,10 +58,10 @@ where
         {
             Some(token) => {
                 tokens.push(token);
-                return self.parse_tokens(tokens);
+                self.parse_tokens(tokens)
             }
-            None => return tokens,
-        };
+            None => tokens,
+        }
     }
 
     fn parse_lparen(&mut self) -> Option<Token> {
@@ -167,10 +167,17 @@ mod test {
     }
 
     #[test]
-    fn test2() {
+    fn tokenise_empty() {
         let scm = "";
         let res: Vec<Token> = vec![];
         let tokens = tokenize(&scm);
         assert_eq!(tokens, res);
+    }
+
+    #[test]
+    #[should_panic]
+    fn hash_error() {
+        let scm = "(#t #f #c)";
+        tokenize(&scm);
     }
 }

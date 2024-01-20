@@ -3,8 +3,8 @@ use std::error::Error;
 use std::fs;
 use std::process;
 
-use rsscheme::lexer::tokenize;
-use rsscheme::parser::parse;
+use schemeish::lexer::tokenize;
+use schemeish::parser::parse;
 
 fn main() {
     let mut args = env::args();
@@ -27,7 +27,7 @@ where
 
     let path = match args.next() {
         Some(path) => path,
-        None => return Err("Useage: rsscheme file_path.scm".into()),
+        None => return Err("Usage: rsscheme file_path.scm".into()),
     };
 
     Ok(fs::read_to_string(path)?)

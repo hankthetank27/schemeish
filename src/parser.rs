@@ -1,5 +1,6 @@
-use crate::lexer::Token;
 use std::iter::Peekable;
+
+use crate::lexer::Token;
 
 #[derive(Debug, PartialEq)]
 pub enum Expr {
