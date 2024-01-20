@@ -23,9 +23,7 @@ impl Token {
 }
 
 pub fn tokenize(input: &str) -> Vec<Token> {
-    let mut iter = input.chars().peekable();
-    let tokens: Vec<Token> = vec![];
-    iter.parse_tokens(tokens)
+    input.chars().peekable().parse_tokens(vec![])
 }
 
 trait TokenIterator<T>
@@ -97,7 +95,7 @@ where
         self.peek()?;
 
         let value: String = self
-            .take_until(|c| c != &' ' && c != &'\n' && c != &')' && c != &'(')
+            .take_until(|c| !c.is_whitespace() && c != &')' && c != &'(')
             .collect();
 
         parse_number(&value).or_else(|| Some(Token::Symbol(value)))
@@ -114,7 +112,7 @@ where
     }
 
     fn advance_to_token(&mut self) -> &Self {
-        match self.next_if(|c| c == &' ' || c == &'\n') {
+        match self.next_if(|c| c.is_whitespace()) {
             Some(_) => &self.advance_to_token(),
             None => self,
         }
@@ -141,11 +139,10 @@ fn parse_number(val: &str) -> Option<Token> {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
 
     #[test]
-    fn test1() {
+    fn tokenize_string() {
         let scm = format!(r##"  (+ 1(+ 2  3)  2 "lolz")"omg"   (#t #f)"##);
         let res = vec![
             Token::LParen,

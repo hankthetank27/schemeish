@@ -4,6 +4,7 @@ use std::fs;
 use std::process;
 
 use rsscheme::lexer::tokenize;
+use rsscheme::parser::parse;
 
 fn main() {
     let mut args = env::args();
@@ -14,7 +15,8 @@ fn main() {
     });
 
     let tokens = tokenize(&file);
-    dbg!(tokens);
+    let parsed = parse(tokens);
+    dbg!(parsed);
 }
 
 fn read<T>(args: &mut T) -> Result<String, Box<dyn Error>>
