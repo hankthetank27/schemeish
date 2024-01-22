@@ -1,4 +1,3 @@
-use std::char;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -12,32 +11,19 @@ pub enum Token {
     Str(String),
 }
 
-impl Token {
-    fn find(c: char) -> Token {
-        match c {
-            '(' => Token::LParen,
-            ')' => Token::RParen,
-            _ => unreachable!(),
-        }
-    }
-}
-
 pub fn tokenize(input: &str) -> Vec<Token> {
-    input.chars().peekable().parse_tokens(vec![])
+    input.chars().peekable().collect_tokens(vec![])
 }
 
 trait TokenIterator<T>
 where
     T: Iterator<Item = char>,
 {
-    fn parse_tokens(&mut self, tokens: Vec<Token>) -> Vec<Token>;
-    fn parse_lparen(&mut self) -> Option<Token>;
-    fn parse_rparen(&mut self) -> Option<Token>;
-    fn parse_bool(&mut self) -> Option<Token>;
-    fn parse_string(&mut self) -> Option<Token>;
-    fn parse_symbol(&mut self) -> Option<Token>;
-    fn parse_first_if(&mut self, cmp: char) -> Option<Token>;
-    fn take_first_if(&mut self, cmp: char) -> Option<char>;
+    fn collect_tokens(&mut self, tokens: Vec<Token>) -> Vec<Token>;
+    fn parse_token(&mut self) -> Option<Token>;
+    fn parse_bool(&mut self) -> Token;
+    fn parse_string(&mut self) -> Token;
+    fn parse_symbol(&mut self) -> Token;
     fn advance_to_token(&mut self) -> &Self;
     fn take_until<F: Fn(&T::Item) -> bool>(&mut self, pred: F) -> IntoIter<T::Item>;
 }
@@ -46,69 +32,64 @@ impl<T> TokenIterator<T> for Peekable<T>
 where
     T: Iterator<Item = char>,
 {
-    fn parse_tokens(&mut self, mut tokens: Vec<Token>) -> Vec<Token> {
+    fn collect_tokens(&mut self, mut tokens: Vec<Token>) -> Vec<Token> {
         self.advance_to_token();
-
-        match self
-            .parse_lparen()
-            .or_else(|| self.parse_rparen())
-            .or_else(|| self.parse_bool())
-            .or_else(|| self.parse_string())
-            .or_else(|| self.parse_symbol())
-        {
+        match self.parse_token() {
             Some(token) => {
                 tokens.push(token);
-                self.parse_tokens(tokens)
+                self.collect_tokens(tokens)
             }
             None => tokens,
         }
     }
 
-    fn parse_lparen(&mut self) -> Option<Token> {
-        self.parse_first_if('(')
+    //TODO: return result type, handling parse errors
+    fn parse_token(&mut self) -> Option<Token> {
+        match self.peek()? {
+            '(' => {
+                self.next();
+                Some(Token::LParen)
+            }
+            ')' => {
+                self.next();
+                Some(Token::RParen)
+            }
+            '#' => {
+                self.next();
+                Some(self.parse_bool())
+            }
+            '"' => {
+                self.next();
+                Some(self.parse_string())
+            }
+            _ => Some(self.parse_symbol()),
+        }
     }
 
-    fn parse_rparen(&mut self) -> Option<Token> {
-        self.parse_first_if(')')
-    }
-
-    fn parse_bool(&mut self) -> Option<Token> {
-        self.take_first_if('#')?;
+    fn parse_bool(&mut self) -> Token {
+        //TODO: handle charater sequences error, ie. #tt, #fasdf
         match self.next() {
-            Some('t') => Some(Token::Boolean(true)),
-            Some('f') => Some(Token::Boolean(false)),
+            Some('t') => Token::Boolean(true),
+            Some('f') => Token::Boolean(false),
+            //TODO: impl error types
             Some(c) => panic!("Expected #t or #f, got #{c}"),
             None => panic!("Expected #t or #f, got nothing"),
         }
     }
 
-    fn parse_string(&mut self) -> Option<Token> {
-        self.take_first_if('"')?;
-
+    fn parse_string(&mut self) -> Token {
+        //TODO: impl error for unclosed string
         let value: String = self.take_until(|c| c != &'"').collect();
-        self.next(); //skip remaining quote
-
-        Some(Token::Str(value))
+        self.next(); //consume remaining quote
+        Token::Str(value)
     }
 
-    fn parse_symbol(&mut self) -> Option<Token> {
-        self.peek()?;
-
+    fn parse_symbol(&mut self) -> Token {
         let value: String = self
             .take_until(|c| !c.is_whitespace() && c != &')' && c != &'(')
             .collect();
 
-        parse_number(&value).or_else(|| Some(Token::Symbol(value)))
-    }
-
-    fn parse_first_if(&mut self, cmp: char) -> Option<Token> {
-        let token = self.next_if(|c| c == &cmp)?;
-        Some(Token::find(token))
-    }
-
-    fn take_first_if(&mut self, cmp: char) -> Option<char> {
-        let char = self.next_if(|c| c == &cmp)?;
-        Some(char)
+        parse_number(&value).unwrap_or_else(|| Token::Symbol(value))
     }
 
     fn advance_to_token(&mut self) -> &Self {
@@ -173,6 +154,22 @@ mod test {
         let tokens = tokenize(&scm);
         assert_eq!(tokens, res);
     }
+
+    #[test]
+    fn tokenise_symbol() {
+        let scm = "yoda";
+        let res: Vec<Token> = vec![Token::Symbol("yoda".to_string())];
+        let tokens = tokenize(&scm);
+        assert_eq!(tokens, res);
+    }
+
+    //TODO: THIS SHOULD ERROR
+    // #[test]
+    // fn tokenise_unclosed_string() {
+    //     let scm = format!(r##" "sup"##);
+    //     let tokens = tokenize(&scm);
+    //     assert_eq!(tokens, error_type_here);
+    // }
 
     #[test]
     #[should_panic]
