@@ -1,11 +1,12 @@
 use std::iter::Peekable;
 
-use crate::lexer::Token;
+use crate::{lexer::Token, procedure::Proc};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     List(Vec<Expr>),
     Atom(Token),
+    Proc(Proc),
 }
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Expr> {

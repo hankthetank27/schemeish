@@ -1,6 +1,6 @@
 # schemeish #
 
-A very simple Scheme interperter, written in Rust.
+A very simple Scheme interperter.
 
 ### References: ###
 

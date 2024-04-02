@@ -2,7 +2,10 @@ use std::env;
 use std::error::Error;
 use std::fs;
 use std::process;
+use std::rc::Rc;
 
+use schemeish::enviroment::Env;
+use schemeish::evaluator::eval;
 use schemeish::lexer::tokenize;
 use schemeish::parser::parse;
 
@@ -15,8 +18,12 @@ fn main() {
     });
 
     let tokens = tokenize(&file);
-    let parsed = parse(tokens);
-    dbg!(parsed);
+    let exprs = parse(tokens);
+    for exp in exprs.iter() {
+        let global_env = Env::new(Rc::new(None));
+        let evalulated = eval(exp, &global_env);
+        println!("{:?}", evalulated)
+    }
 }
 
 fn read<T>(args: &mut T) -> Result<String, Box<dyn Error>>
@@ -31,4 +38,21 @@ where
     };
 
     Ok(fs::read_to_string(path)?)
+}
+
+#[cfg(test)]
+mod test {
+    use schemeish::{lexer::Token, parser::Expr};
+
+    use super::*;
+
+    #[test]
+    fn can_do_arithemtic() {
+        let scm = "(+ 1 (+ (+ 1 2)(- 2 1) 6 7 8 (- 3 2)))";
+        let tokens = tokenize(scm);
+        let exprs = parse(tokens);
+        let global_env = Env::new(Rc::new(None));
+        let evalulated = eval(exprs.iter().next().unwrap(), &global_env);
+        assert_eq!(evalulated, Expr::Atom(Token::Number(27.0)));
+    }
 }
