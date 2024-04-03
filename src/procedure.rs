@@ -11,6 +11,14 @@ pub struct Proc {
     env: EnvRef,
 }
 
+// we can probably make a printing module
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct PrintProc {
+    params: Vec<String>,
+    body: Vec<Expr>,
+}
+
 impl Proc {
     pub fn new(body: Vec<Expr>, params: Vec<String>, env: EnvRef) -> Proc {
         Proc { body, params, env }
@@ -34,5 +42,12 @@ impl Proc {
                 Some(eval(expr, new_env_ref.clone_rc()))
             })
             .unwrap()
+    }
+
+    pub fn printable(&self) -> PrintProc {
+        PrintProc {
+            params: self.params.clone(),
+            body: self.body.clone(),
+        }
     }
 }

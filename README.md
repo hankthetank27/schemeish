@@ -1,6 +1,6 @@
 # schemeish #
 
-A very simple Scheme interperter.
+A toy Scheme interperter based off the metacircular evaluator from SCIP. Very much a work in progress...
 
 ### References: ###
 

@@ -34,6 +34,9 @@ pub fn eval(exp: &Expr, env: EnvRef) -> Expr {
     }
 }
 
+// TODO: fn for evaluating args before passing to apply. wanna avoid all these calls
+// to eval is random places.
+
 pub fn apply(op_name: &str, args: &Vec<Expr>, env: EnvRef) -> Expr {
     match op_name {
         "+" => collect_to_nums(args, env).iter().sum::<f64>().to_num_expr(),
@@ -65,7 +68,7 @@ pub fn apply(op_name: &str, args: &Vec<Expr>, env: EnvRef) -> Expr {
 pub fn special_form(operator: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
     match operator {
         "define" => {
-            let identifier = args.get(0).expect("Expected identifier for variable");
+            let identifier = args.get(0).expect("Expected identifier");
             match identifier {
                 //bind var
                 Expr::Atom(Token::Symbol(identifier)) => {

@@ -23,8 +23,8 @@ fn main() {
     let global_ref = EnvRef::new(global_env);
     for exp in exprs.iter() {
         let evalulated = eval(exp, global_ref.clone_rc());
-        // TODO: check infinite recuse?
-        if let Expr::Proc(_) = evalulated {
+        if let Expr::Proc(p) = evalulated {
+            println!("{:?}", p.printable())
         } else {
             println!("{:?}", evalulated)
         }
