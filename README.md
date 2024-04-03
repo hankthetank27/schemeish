@@ -1,6 +1,6 @@
 # schemeish #
 
-A toy Scheme interperter based off the metacircular evaluator from SCIP. Very much a work in progress...
+A toy Scheme interperter based off the metacircular evaluator from SICP. Very much a work in progress...
 
 ### References: ###
 
