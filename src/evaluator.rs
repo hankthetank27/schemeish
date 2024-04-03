@@ -1,11 +1,18 @@
 use core::f64;
+use std::{panic, rc::Rc};
 
-use crate::{enviroment::Env, lexer::Token, parser::Expr, procedure::Proc};
+use crate::{enviroment::EnvRef, lexer::Token, parser::Expr, procedure::Proc};
 
-pub fn eval(exp: &Expr, env: &Env) -> Expr {
+pub fn eval(exp: &Expr, env: EnvRef) -> Expr {
     match exp {
         // lookup symbol (variable) value in env
-        Expr::Atom(Token::Symbol(name)) => env.get_val(name).unwrap(),
+        Expr::Atom(Token::Symbol(identifier)) => env
+            .as_ref()
+            .borrow_mut()
+            .as_ref()
+            .unwrap()
+            .get_val(identifier)
+            .expect("Access unbound variable"), // lol
 
         // self evaluating
         Expr::Atom(val) => Expr::Atom(val.clone()),
@@ -18,11 +25,12 @@ pub fn eval(exp: &Expr, env: &Env) -> Expr {
             let operator = ls.get(0).expect("No operator found");
             match operator {
                 Expr::Atom(Token::Symbol(op_name)) => {
-                    let args = ls[1..].to_vec(); // clones here
-
-                    // we check here first for special forms return Some
-                    // special_form(op_name, args, env)
-                    apply(op_name, args, env)
+                    let args = &ls[1..].to_vec(); // clones here
+                    if let Some(res) = special_form(op_name, args, Rc::clone(&env)) {
+                        res
+                    } else {
+                        apply(op_name, args, env)
+                    }
                 }
                 _ => panic!("No symbol found"),
             }
@@ -30,8 +38,8 @@ pub fn eval(exp: &Expr, env: &Env) -> Expr {
     }
 }
 
-pub fn apply(name: &str, args: Vec<Expr>, env: &Env) -> Expr {
-    match name {
+pub fn apply(op_name: &str, args: &Vec<Expr>, env: EnvRef) -> Expr {
+    match op_name {
         "+" => collect_to_nums(args, env).iter().sum::<f64>().to_num_expr(),
         "-" => {
             let nums = collect_to_nums(args, env);
@@ -40,23 +48,84 @@ pub fn apply(name: &str, args: Vec<Expr>, env: &Env) -> Expr {
                 .fold(nums[0], |diff, num| diff - num)
                 .to_num_expr()
         }
+        // call proc
+        _ => {
+            let proc = env
+                .as_ref()
+                .borrow_mut()
+                .as_ref()
+                .unwrap()
+                .get_val(op_name)
+                .expect("Access unbound procedure");
 
-        //here we will look up procs in env
-        _ => panic!("operation not yet implemented"),
+            // eval args (should prob make this its own fn)
+            let args = args
+                .iter()
+                .map(|arg| eval(arg, Rc::clone(&env)))
+                .collect::<Vec<Expr>>();
+
+            match proc {
+                Expr::Proc(proc) => proc.call(args),
+                _ => panic!("Expected procedure"),
+            }
+        }
     }
 }
 
-pub fn specical_form(operator: &str, args: Vec<Expr>, env: Env) -> Option<Expr> {
+pub fn special_form(operator: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
     match operator {
-        "define" => todo!(),
-        "lambda" => todo!(),
+        "define" => {
+            let identifier = args.get(0).expect("Expected identifier for variable");
+            match identifier {
+                //bind var
+                Expr::Atom(Token::Symbol(identifier)) => {
+                    let value = args.get(1).expect("Expected value for variable");
+                    let val_expr = eval(value, Rc::clone(&env));
+                    Some(
+                        env.as_ref()
+                            .borrow_mut()
+                            .as_mut()
+                            .unwrap()
+                            .insert_val(identifier.to_string(), val_expr),
+                    )
+                }
+
+                //bind proc
+                Expr::List(ls) => {
+                    let mut str_ls = ls.iter().map(|expr| match expr {
+                        Expr::Atom(Token::Symbol(name)) => name.to_string(),
+                        _ => panic!("Expected symbol as parameter"),
+                    });
+
+                    let proc_name = str_ls.next().expect("Expected identifier for proc");
+                    let proc_args = str_ls.collect::<Vec<String>>();
+                    let proc_body = args[1..].to_vec();
+
+                    let proc = Expr::Proc(Proc::new(proc_body, proc_args, Rc::clone(&env)));
+                    Some(
+                        env.as_ref()
+                            .borrow_mut()
+                            .as_mut()
+                            .unwrap()
+                            .insert_val(proc_name.to_string(), proc),
+                    )
+                }
+                _ => None,
+            }
+        }
+        // "lambda" => {
+        //     let proc_args = args.iter().next().unwrap();
+        //     let proc_body = args.iter().next().unwrap();
+        //     // Proc::new(proc_body, proc_args, env);
+        //     todo!()
+        // }
         _ => None,
     }
 }
 
-pub fn collect_to_nums(args: Vec<Expr>, env: &Env) -> Vec<f64> {
+pub fn collect_to_nums(args: &Vec<Expr>, env: EnvRef) -> Vec<f64> {
     args.iter()
-        .map(|expr| match eval(expr, &env) {
+        .map(|expr| match eval(expr, Rc::clone(&env)) {
             Expr::Atom(Token::Number(n)) => n,
             _ => panic!("attempted to perform arithmetic on a non-number value"),
         })
