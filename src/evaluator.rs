@@ -1,18 +1,14 @@
 use core::f64;
-use std::{panic, rc::Rc};
+use std::panic;
 
 use crate::{enviroment::EnvRef, lexer::Token, parser::Expr, procedure::Proc};
 
 pub fn eval(exp: &Expr, env: EnvRef) -> Expr {
     match exp {
         // lookup symbol (variable) value in env
-        Expr::Atom(Token::Symbol(identifier)) => env
-            .as_ref()
-            .borrow_mut()
-            .as_ref()
-            .unwrap()
-            .get_val(identifier)
-            .expect("Access unbound variable"), // lol
+        Expr::Atom(Token::Symbol(identifier)) => {
+            env.get_val(identifier).expect("Access unbound variable")
+        }
 
         // self evaluating
         Expr::Atom(val) => Expr::Atom(val.clone()),
@@ -26,7 +22,7 @@ pub fn eval(exp: &Expr, env: EnvRef) -> Expr {
             match operator {
                 Expr::Atom(Token::Symbol(op_name)) => {
                     let args = &ls[1..].to_vec(); // clones here
-                    if let Some(res) = special_form(op_name, args, Rc::clone(&env)) {
+                    if let Some(res) = special_form(op_name, args, env.clone_rc()) {
                         res
                     } else {
                         apply(op_name, args, env)
@@ -50,18 +46,12 @@ pub fn apply(op_name: &str, args: &Vec<Expr>, env: EnvRef) -> Expr {
         }
         // call proc
         _ => {
-            let proc = env
-                .as_ref()
-                .borrow_mut()
-                .as_ref()
-                .unwrap()
-                .get_val(op_name)
-                .expect("Access unbound procedure");
+            let proc = env.get_val(op_name).expect("Access unbound procedure");
 
             // eval args (should prob make this its own fn)
             let args = args
                 .iter()
-                .map(|arg| eval(arg, Rc::clone(&env)))
+                .map(|arg| eval(arg, env.clone_rc()))
                 .collect::<Vec<Expr>>();
 
             match proc {
@@ -80,14 +70,8 @@ pub fn special_form(operator: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Exp
                 //bind var
                 Expr::Atom(Token::Symbol(identifier)) => {
                     let value = args.get(1).expect("Expected value for variable");
-                    let val_expr = eval(value, Rc::clone(&env));
-                    Some(
-                        env.as_ref()
-                            .borrow_mut()
-                            .as_mut()
-                            .unwrap()
-                            .insert_val(identifier.to_string(), val_expr),
-                    )
+                    let val_expr = eval(value, env.clone_rc());
+                    env.insert_val(identifier.to_string(), val_expr)
                 }
 
                 //bind proc
@@ -101,14 +85,8 @@ pub fn special_form(operator: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Exp
                     let proc_args = str_ls.collect::<Vec<String>>();
                     let proc_body = args[1..].to_vec();
 
-                    let proc = Expr::Proc(Proc::new(proc_body, proc_args, Rc::clone(&env)));
-                    Some(
-                        env.as_ref()
-                            .borrow_mut()
-                            .as_mut()
-                            .unwrap()
-                            .insert_val(proc_name.to_string(), proc),
-                    )
+                    let proc = Expr::Proc(Proc::new(proc_body, proc_args, env.clone_rc()));
+                    env.insert_val(proc_name.to_string(), proc)
                 }
                 _ => None,
             }
@@ -125,7 +103,7 @@ pub fn special_form(operator: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Exp
 
 pub fn collect_to_nums(args: &Vec<Expr>, env: EnvRef) -> Vec<f64> {
     args.iter()
-        .map(|expr| match eval(expr, Rc::clone(&env)) {
+        .map(|expr| match eval(expr, env.clone_rc()) {
             Expr::Atom(Token::Number(n)) => n,
             _ => panic!("attempted to perform arithmetic on a non-number value"),
         })

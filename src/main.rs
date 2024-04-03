@@ -1,11 +1,9 @@
-use std::cell::RefCell;
 use std::env;
 use std::error::Error;
 use std::fs;
 use std::process;
-use std::rc::Rc;
 
-use schemeish::enviroment::Env;
+use schemeish::enviroment::{Env, EnvRef};
 use schemeish::evaluator::eval;
 use schemeish::lexer::tokenize;
 use schemeish::parser::parse;
@@ -21,10 +19,11 @@ fn main() {
 
     let tokens = tokenize(&file);
     let exprs = parse(tokens);
-    let global_env = Env::new(Rc::new(RefCell::new(None)));
-    let global_ref = Rc::new(RefCell::new(Some(global_env)));
+    let global_env = Env::new(EnvRef::new_empty());
+    let global_ref = EnvRef::new(global_env);
     for exp in exprs.iter() {
-        let evalulated = eval(exp, Rc::clone(&global_ref));
+        let evalulated = eval(exp, global_ref.clone_rc());
+        // TODO: check infinite recuse?
         if let Expr::Proc(_) = evalulated {
         } else {
             println!("{:?}", evalulated)
@@ -57,8 +56,8 @@ mod test {
         let scm = "(+ 1 (+ (+ 1 2)(- 2 1) 6 7 8 (- 3 2)))";
         let tokens = tokenize(scm);
         let exprs = parse(tokens);
-        let global_env = Env::new(Rc::new(RefCell::new(None)));
-        let global_ref = Rc::new(RefCell::new(Some(global_env)));
+        let global_env = Env::new(EnvRef::new_empty());
+        let global_ref = EnvRef::new(global_env);
         let evalulated = eval(exprs.get(0).unwrap(), global_ref);
         assert_eq!(evalulated, Expr::Atom(Token::Number(27.0)));
     }

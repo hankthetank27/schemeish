@@ -3,7 +3,6 @@ use crate::{
     evaluator::eval,
     parser::Expr,
 };
-use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Proc {
@@ -19,7 +18,7 @@ impl Proc {
 
     pub fn call(&self, args: Vec<Expr>) -> Expr {
         let mut args = args.into_iter();
-        let mut new_env = Env::new(Rc::clone(&self.env));
+        let mut new_env = Env::new(self.env.clone_rc());
 
         for param in self.params.iter() {
             let arg = args
@@ -28,13 +27,11 @@ impl Proc {
             new_env.insert_val(param.to_string(), arg.clone());
         }
 
-        let new_env_ref = Rc::new(RefCell::new(Some(new_env)));
+        let new_env_ref = EnvRef::new(new_env);
         self.body
             .iter()
             .fold(None, |_returned_expr, expr| {
-                // TODO this call to eval is producing infinite recussion hmmm
-                println!("{:?}", expr);
-                Some(eval(expr, Rc::clone(&new_env_ref)))
+                Some(eval(expr, new_env_ref.clone_rc()))
             })
             .unwrap()
     }

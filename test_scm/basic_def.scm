@@ -1,2 +1,5 @@
-(define (add x y)
-  (+ x y))
+(define (add-with-ten x y)
+  (define (add b c)
+    (+ 10 b c))
+  (+ (add x x) (add y y)))
+(add-with-ten 1 1)
