@@ -13,60 +13,50 @@ pub fn eval(exp: &Expr, env: EnvRef) -> Expr {
         // self evaluating
         Expr::Atom(val) => Expr::Atom(val.clone()),
 
-        // unsure how to handle this case atm
-        Expr::Proc(proc) => Expr::Proc(proc.clone()),
-
         // procedure
         Expr::List(ls) => {
-            let operator = ls.get(0).expect("No operator found");
-            match operator {
-                Expr::Atom(Token::Symbol(op_name)) => {
-                    let args = &ls[1..].to_vec(); // clones here
-                    if let Some(res) = special_form(op_name, args, env.clone_rc()) {
-                        res
-                    } else {
-                        apply(op_name, args, env)
+            let operation = ls.get(0).expect("No operator found");
+            match operation {
+                // TODO: consolidate. I'm not a big fan of how this is written
+                // regarding calls to apply/special_form but it gets the job
+                // done for now.
+                Expr::Atom(Token::Symbol(op_id)) => {
+                    let args = ls[1..].to_vec(); // clones here
+                    match special_form(op_id, &args, env.clone_rc()) {
+                        Some(expr) => expr,
+                        None => apply(operation, &args, env),
                     }
+                }
+                // we would call
+                Expr::List(_) => {
+                    let args = ls[1..].to_vec(); // clones here
+                    apply(operation, &args, env)
                 }
                 _ => panic!("No symbol found"),
             }
         }
+
+        // unsure how to handle this case atm
+        Expr::Proc(proc) => Expr::Proc(proc.clone()),
     }
 }
 
-// TODO: fn for evaluating args before passing to apply. wanna avoid all these calls
-// to eval is random places.
-
-pub fn apply(op_name: &str, args: &Vec<Expr>, env: EnvRef) -> Expr {
-    match op_name {
-        "+" => collect_to_nums(args, env).iter().sum::<f64>().to_num_expr(),
-        "-" => {
-            let nums = collect_to_nums(args, env);
-            nums.iter()
-                .skip(1)
-                .fold(nums[0], |diff, num| diff - num)
-                .to_num_expr()
-        }
-        // call proc
-        _ => {
-            let proc = env.get_val(op_name).expect("Access unbound procedure");
-
-            // eval args (should prob make this its own fn)
-            let args = args
-                .iter()
-                .map(|arg| eval(arg, env.clone_rc()))
-                .collect::<Vec<Expr>>();
-
-            match proc {
-                Expr::Proc(proc) => proc.call(args),
-                _ => panic!("Expected procedure"),
-            }
-        }
+pub fn apply(operation: &Expr, args: &Vec<Expr>, env: EnvRef) -> Expr {
+    match eval(operation, env.clone_rc()) {
+        Expr::Proc(proc) => proc.call(eval_list(args, env.clone_rc())),
+        _ => panic!("Expected procedure"),
     }
 }
 
-pub fn special_form(operator: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
-    match operator {
+pub fn eval_list(epxrs: &Vec<Expr>, env: EnvRef) -> Vec<Expr> {
+    epxrs
+        .iter()
+        .map(|expr| eval(expr, env.clone_rc()))
+        .collect()
+}
+
+pub fn special_form(operation: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
+    match operation {
         "define" => {
             let identifier = args.get(0).expect("Expected identifier");
             match identifier {
@@ -78,15 +68,16 @@ pub fn special_form(operator: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Exp
                 }
 
                 //bind proc
-                Expr::List(ls) => {
-                    let mut str_ls = ls.iter().map(|expr| match expr {
+                Expr::List(first_ls) => {
+                    let rest_ls = args;
+                    let mut first_ls = first_ls.iter().map(|expr| match expr {
                         Expr::Atom(Token::Symbol(name)) => name.to_string(),
                         _ => panic!("Expected symbol as parameter"),
                     });
 
-                    let proc_name = str_ls.next().expect("Expected identifier for proc");
-                    let proc_args = str_ls.collect::<Vec<String>>();
-                    let proc_body = args[1..].to_vec();
+                    let proc_name = first_ls.next().expect("Expected identifier for proc");
+                    let proc_args = first_ls.collect::<Vec<String>>();
+                    let proc_body = rest_ls[1..].to_vec();
 
                     let proc = Expr::Proc(Proc::new(proc_body, proc_args, env.clone_rc()));
                     env.insert_val(proc_name.to_string(), proc)
@@ -94,23 +85,54 @@ pub fn special_form(operator: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Exp
                 _ => None,
             }
         }
-        // "lambda" => {
-        //     let proc_args = args.iter().next().unwrap();
-        //     let proc_body = args.iter().next().unwrap();
-        //     // Proc::new(proc_body, proc_args, env);
-        //     todo!()
-        // }
+        "lambda" => {
+            let mut args = args.iter();
+            let first_ls = args.next().expect("Expected list of parameters");
+            match first_ls {
+                Expr::List(first_ls) => {
+                    let first_ls = first_ls.iter().map(|expr| match expr {
+                        Expr::Atom(Token::Symbol(name)) => name.to_string(),
+                        _ => panic!("Expected symbol as parameter"),
+                    });
+
+                    let proc_args = first_ls.collect::<Vec<String>>();
+                    let proc_body = args.map(|a| a.to_owned()).collect();
+
+                    Some(Expr::Proc(Proc::new(proc_body, proc_args, env.clone_rc())))
+                }
+                _ => None,
+            }
+        }
+        "+" => Some(eval_list(args, env).to_nums().sum::<f64>().to_num_expr()),
+        "-" => {
+            let nums: Vec<f64> = eval_list(args, env).to_nums().collect();
+            Some(
+                nums.iter()
+                    .skip(1)
+                    .fold(nums[0], |diff, num| diff - num)
+                    .to_num_expr(),
+            )
+        }
         _ => None,
     }
 }
 
-pub fn collect_to_nums(args: &Vec<Expr>, env: EnvRef) -> Vec<f64> {
-    args.iter()
-        .map(|expr| match eval(expr, env.clone_rc()) {
-            Expr::Atom(Token::Number(n)) => n,
+//TODO: ???
+pub fn def_proc(params: &Vec<Expr>, env: EnvRef) -> Proc {
+    todo!()
+}
+
+trait Collect {
+    fn to_nums(&self) -> impl Iterator<Item = f64>;
+}
+
+impl Collect for Vec<Expr> {
+    fn to_nums(&self) -> impl Iterator<Item = f64> {
+        self.iter().map(|expr| match expr {
+            Expr::Atom(Token::Number(n)) => *n,
             _ => panic!("attempted to perform arithmetic on a non-number value"),
         })
-        .collect()
+    }
 }
 
 pub trait ToExpr {
