@@ -4,27 +4,21 @@ use crate::{enviroment::EnvRef, lexer::Token, parser::Expr, primitives, special_
 
 pub fn eval(expr: &Expr, env: EnvRef) -> Expr {
     match expr {
-        // lookup symbol (variable) value in env
+        // variable lookup
         Expr::Atom(Token::Symbol(identifier)) => {
             env.get_val(identifier).expect("Access unbound variable")
         }
-
         // self evaluating
         Expr::Atom(val) => Expr::Atom(val.clone()),
-
         // procedure
         Expr::List(ls) => {
             let operation = ls.get(0).expect("No operator found");
             match operation {
-                // TODO: consolidate. I'm not a big fan of how this is written
-                // regarding calls to apply/special_form but it gets the job
-                // done for now.
                 Expr::Atom(Token::Symbol(op_id)) => {
                     let args = ls[1..].to_vec(); // clones here
-                    match special(op_id, &args, env.clone_rc()) {
-                        Some(expr) => expr,
-                        None => apply(operation, &args, env),
-                    }
+                    try_special(op_id, &args, env.clone_rc())
+                        .or_else(|| try_primitive(op_id, &args, env.clone_rc()))
+                        .unwrap_or_else(|| apply(operation, &args, env))
                 }
                 Expr::List(_) => {
                     let args = ls[1..].to_vec(); // clones here
@@ -54,12 +48,21 @@ pub fn eval_list(epxrs: &Vec<Expr>, env: EnvRef) -> Vec<Expr> {
         .collect()
 }
 
-fn special(operation: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
-    match operation {
+fn try_special(operation: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
+    match operation.trim() {
         "define" => Some(special_forms::define(args, env.clone_rc())),
         "lambda" => Some(special_forms::lambda(args, env.clone_rc())),
+        _ => None,
+    }
+}
+
+fn try_primitive(operation: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
+    match operation.trim() {
         "+" => Some(primitives::add(args, env.clone_rc())),
         "-" => Some(primitives::subtract(args, env.clone_rc())),
+        "*" => Some(primitives::multiply(args, env.clone_rc())),
+        "/" => Some(primitives::divide(args, env.clone_rc())),
+        "=" => Some(primitives::equality(args, env.clone_rc())),
         _ => None,
     }
 }

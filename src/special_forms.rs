@@ -15,7 +15,7 @@ pub fn define(args: &Vec<Expr>, env: EnvRef) -> Expr {
             let rest_ls = args;
             let mut first_ls = first_ls.iter().map(|expr| match expr {
                 Expr::Atom(Token::Symbol(name)) => name.to_string(),
-                _ => panic!("Expected symbol as parameter"),
+                _ => panic!("Expected symbol as parameter, got {:?}", expr),
             });
 
             let proc_name = first_ls.next().expect("Expected identifier for proc");
@@ -36,7 +36,7 @@ pub fn lambda(args: &Vec<Expr>, env: EnvRef) -> Expr {
         Expr::List(first_ls) => {
             let first_ls = first_ls.iter().map(|expr| match expr {
                 Expr::Atom(Token::Symbol(name)) => name.to_string(),
-                _ => panic!("Expected symbol as parameter"),
+                _ => panic!("Expected symbol as parameter, got {:?}", expr),
             });
 
             let proc_args = first_ls.collect::<Vec<String>>();
