@@ -52,6 +52,7 @@ fn try_special(operation: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
     match operation.trim() {
         "define" => Some(special_forms::define(args, env.clone_rc())),
         "lambda" => Some(special_forms::lambda(args, env.clone_rc())),
+        "if" => Some(special_forms::if_statement(args, env.clone_rc())),
         _ => None,
     }
 }
@@ -63,6 +64,8 @@ fn try_primitive(operation: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr>
         "*" => Some(primitives::multiply(args, env.clone_rc())),
         "/" => Some(primitives::divide(args, env.clone_rc())),
         "=" => Some(primitives::equality(args, env.clone_rc())),
+        ">" => Some(primitives::greater_than(args, env.clone_rc())),
+        "<" => Some(primitives::less_than(args, env.clone_rc())),
         _ => None,
     }
 }

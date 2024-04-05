@@ -14,3 +14,12 @@
 (- 10 5 4)
 (= 2 2 2)
 (= 1 2 2)
+
+(define (test-if x y)
+  (if (= x y)
+    "nice!"
+    "not nice :/"))
+(test-if 1 2)
+(test-if 1 1)
+
+

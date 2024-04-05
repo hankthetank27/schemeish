@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::{enviroment::EnvRef, evaluator, lexer::Token, parser::Expr, procedure::Proc};
 
 pub fn define(args: &Vec<Expr>, env: EnvRef) -> Expr {
@@ -45,5 +47,19 @@ pub fn lambda(args: &Vec<Expr>, env: EnvRef) -> Expr {
             Expr::Proc(Proc::new(proc_body, proc_args, env.clone_rc()))
         }
         _ => panic!("Failed to define lambda. Expected list, got:{:?}", first_ls),
+    }
+}
+
+pub fn if_statement(args: &Vec<Expr>, env: EnvRef) -> Expr {
+    let mut args = args.into_iter();
+    let predicate = evaluator::eval(args.next().expect("Expected predicate"), env.clone_rc());
+    match predicate {
+        Expr::Atom(Token::Boolean(true)) => {
+            evaluator::eval(args.next().expect("Expected consequence"), env)
+        }
+        Expr::Atom(Token::Boolean(false)) => {
+            evaluator::eval(args.nth(1).expect("Expected consequence"), env)
+        }
+        _ => panic!("Expected boolean, got {:?}", predicate),
     }
 }

@@ -43,6 +43,24 @@ pub fn equality(args: &Vec<Expr>, env: EnvRef) -> Expr {
     }
 }
 
+pub fn greater_than(args: &Vec<Expr>, env: EnvRef) -> Expr {
+    let mut nums = evaluator::eval_list(args, env).to_nums();
+    if let Some(first) = nums.next() {
+        (first > nums.sum()).to_expr()
+    } else {
+        panic!("Procedure requires at least one argument")
+    }
+}
+
+pub fn less_than(args: &Vec<Expr>, env: EnvRef) -> Expr {
+    let mut nums = evaluator::eval_list(args, env).to_nums();
+    if let Some(first) = nums.next() {
+        (first < nums.sum()).to_expr()
+    } else {
+        panic!("Procedure requires at least one argument")
+    }
+}
+
 trait Collect {
     fn to_nums(self) -> impl Iterator<Item = f64>;
 }
