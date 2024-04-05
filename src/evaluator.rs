@@ -36,7 +36,7 @@ pub fn eval(expr: &Expr, env: EnvRef) -> Expr {
 pub fn apply(operation: &Expr, args: &Vec<Expr>, env: EnvRef) -> Expr {
     let operation = eval(operation, env.clone_rc());
     match operation {
-        Expr::Proc(proc) => proc.call(eval_list(args, env.clone_rc())),
+        Expr::Proc(proc) => proc.call(eval_list(args, env)),
         _ => panic!("Expected procedure, got {:?}", operation),
     }
 }
@@ -50,22 +50,24 @@ pub fn eval_list(epxrs: &Vec<Expr>, env: EnvRef) -> Vec<Expr> {
 
 fn try_special(operation: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
     match operation.trim() {
-        "define" => Some(special_forms::define(args, env.clone_rc())),
-        "lambda" => Some(special_forms::lambda(args, env.clone_rc())),
-        "if" => Some(special_forms::if_statement(args, env.clone_rc())),
+        "define" => Some(special_forms::define(args, env)),
+        "lambda" => Some(special_forms::lambda(args, env)),
+        "if" => Some(special_forms::if_statement(args, env)),
         _ => None,
     }
 }
 
 fn try_primitive(operation: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
     match operation.trim() {
-        "+" => Some(primitives::add(args, env.clone_rc())),
-        "-" => Some(primitives::subtract(args, env.clone_rc())),
-        "*" => Some(primitives::multiply(args, env.clone_rc())),
-        "/" => Some(primitives::divide(args, env.clone_rc())),
-        "=" => Some(primitives::equality(args, env.clone_rc())),
-        ">" => Some(primitives::greater_than(args, env.clone_rc())),
-        "<" => Some(primitives::less_than(args, env.clone_rc())),
+        "+" => Some(primitives::add(args, env)),
+        "-" => Some(primitives::subtract(args, env)),
+        "*" => Some(primitives::multiply(args, env)),
+        "/" => Some(primitives::divide(args, env)),
+        "=" => Some(primitives::equality(args, env)),
+        ">" => Some(primitives::greater_than(args, env)),
+        ">=" => Some(primitives::greater_than_or_eq(args, env)),
+        "<" => Some(primitives::less_than(args, env)),
+        "<=" => Some(primitives::less_than_or_eq(args, env)),
         _ => None,
     }
 }

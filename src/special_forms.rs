@@ -51,14 +51,13 @@ pub fn lambda(args: &Vec<Expr>, env: EnvRef) -> Expr {
 }
 
 pub fn if_statement(args: &Vec<Expr>, env: EnvRef) -> Expr {
-    let mut args = args.into_iter();
-    let predicate = evaluator::eval(args.next().expect("Expected predicate"), env.clone_rc());
+    let predicate = evaluator::eval(args.get(0).expect("Expected predicate"), env.clone_rc());
     match predicate {
         Expr::Atom(Token::Boolean(true)) => {
-            evaluator::eval(args.next().expect("Expected consequence"), env)
+            evaluator::eval(args.get(1).expect("Expected consequence"), env)
         }
         Expr::Atom(Token::Boolean(false)) => {
-            evaluator::eval(args.nth(1).expect("Expected consequence"), env)
+            evaluator::eval(args.get(2).expect("Expected alternative"), env)
         }
         _ => panic!("Expected boolean, got {:?}", predicate),
     }
