@@ -42,6 +42,7 @@ impl Proc {
                 Some(eval(expr, new_env_ref.clone_rc()))
             })
             .unwrap()
+        //return None (undefined) is the empty list??
     }
 
     pub fn printable(&self) -> PrintProc {

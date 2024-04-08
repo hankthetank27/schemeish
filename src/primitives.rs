@@ -19,63 +19,58 @@ pub fn multiply(args: &Vec<Expr>, env: EnvRef) -> Expr {
 
 pub fn subtract(args: &Vec<Expr>, env: EnvRef) -> Expr {
     let mut nums = evaluator::eval_list(args, env).to_nums();
-    if let Some(first) = nums.next() {
-        nums.fold(first, |diff, num| diff - num).to_expr()
-    } else {
-        panic!("Procedure requires at least one argument")
+    match nums.next() {
+        Some(first) => nums.fold(first, |diff, num| diff - num).to_expr(),
+        None => panic!("Procedure requires at least one argument"),
     }
 }
 
 pub fn divide(args: &Vec<Expr>, env: EnvRef) -> Expr {
     let mut nums = evaluator::eval_list(args, env).to_nums();
-    if let Some(first) = nums.next() {
-        nums.fold(first, |quot, num| quot / num).to_expr()
-    } else {
-        panic!("Procedure requires at least one argument")
+    match nums.next() {
+        Some(first) => nums.fold(first, |quot, num| quot / num).to_expr(),
+        None => panic!("Procedure requires at least one argument"),
     }
 }
 
 pub fn equality(args: &Vec<Expr>, env: EnvRef) -> Expr {
     let nums: Vec<f64> = evaluator::eval_list(args, env).to_nums().collect();
-    if let Some(first) = nums.get(0) {
-        nums.iter().all(|num| num == first).to_expr()
-    } else {
-        panic!("Procedure requires at least one argument")
+    match nums.get(0) {
+        Some(first) => nums.iter().all(|num| num == first).to_expr(),
+        None => panic!("Procedure requires at least one argument"),
     }
 }
 
 pub fn greater_than(args: &Vec<Expr>, env: EnvRef) -> Expr {
-    cmp_first_sum_rest(args, env, |first, rest| first > rest)
+    cmp_first_to_rest(args, env, |first, rest| first > rest)
 }
 
 pub fn greater_than_or_eq(args: &Vec<Expr>, env: EnvRef) -> Expr {
-    cmp_first_sum_rest(args, env, |first, rest| first >= rest)
+    cmp_first_to_rest(args, env, |first, rest| first >= rest)
 }
 
 pub fn less_than(args: &Vec<Expr>, env: EnvRef) -> Expr {
-    cmp_first_sum_rest(args, env, |first, rest| first < rest)
+    cmp_first_to_rest(args, env, |first, rest| first < rest)
 }
 
 pub fn less_than_or_eq(args: &Vec<Expr>, env: EnvRef) -> Expr {
-    cmp_first_sum_rest(args, env, |first, rest| first <= rest)
+    cmp_first_to_rest(args, env, |first, rest| first <= rest)
 }
 
-fn cmp_first_sum_rest<F>(args: &Vec<Expr>, env: EnvRef, cmp: F) -> Expr
+fn cmp_first_to_rest<F>(args: &Vec<Expr>, env: EnvRef, cmp: F) -> Expr
 where
     F: Fn(f64, f64) -> bool,
 {
-    let mut nums = evaluator::eval_list(args, env).to_nums();
-    if let Some(first) = nums.next() {
-        cmp(
-            first,
-            nums.peekable()
+    let mut nums = evaluator::eval_list(args, env).to_nums().peekable();
+    match nums.next() {
+        Some(first) => {
+            let sum_rest = nums
                 .has_next()
                 .expect("Procedure requires at least two arguments")
-                .sum(),
-        )
-        .to_expr()
-    } else {
-        panic!("Procedure requires at least two argument")
+                .sum();
+            cmp(first, sum_rest).to_expr()
+        }
+        None => panic!("Procedure requires at least two argument"),
     }
 }
 
@@ -92,19 +87,18 @@ impl Collect for Vec<Expr> {
     }
 }
 
-trait HasNext<T: Iterator> {
-    fn has_next(self) -> Option<Peekable<T>>;
+trait HasNext<I: Iterator> {
+    fn has_next(self) -> Option<Peekable<I>>;
 }
 
-impl<T> HasNext<T> for Peekable<T>
+impl<I> HasNext<I> for Peekable<I>
 where
-    T: Iterator<Item = f64>,
+    I: Iterator<Item = f64>,
 {
-    fn has_next(mut self) -> Option<Peekable<T>> {
-        if self.peek().is_some() {
-            Some(self)
-        } else {
-            None
+    fn has_next(mut self) -> Option<Peekable<I>> {
+        match self.peek().is_some() {
+            true => Some(self),
+            false => None,
         }
     }
 }
