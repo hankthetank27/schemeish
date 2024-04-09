@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::{enviroment::EnvRef, evaluator, lexer::Token, parser::Expr, procedure::Proc};
+use crate::{enviroment::EnvRef, evaluator, lexer::Token, parser::Expr, procedure::Compound};
 
 pub fn define(args: &Vec<Expr>, env: EnvRef) -> Expr {
     let identifier = args.get(0).expect("Expected identifier");
@@ -24,7 +24,7 @@ pub fn define(args: &Vec<Expr>, env: EnvRef) -> Expr {
             let proc_args = first_ls.collect::<Vec<String>>();
             let proc_body = rest_ls[1..].to_vec();
 
-            let proc = Expr::Proc(Proc::new(proc_body, proc_args, env.clone_rc()));
+            let proc = Expr::Proc(Compound::new(proc_body, proc_args, env.clone_rc()));
             env.insert_val(proc_name.to_string(), proc).unwrap()
         }
         _ => panic!("Failed to define {:?}", identifier),
@@ -44,7 +44,7 @@ pub fn lambda(args: &Vec<Expr>, env: EnvRef) -> Expr {
             let proc_args = first_ls.collect::<Vec<String>>();
             let proc_body = args.map(|a| a.to_owned()).collect();
 
-            Expr::Proc(Proc::new(proc_body, proc_args, env.clone_rc()))
+            Expr::Proc(Compound::new(proc_body, proc_args, env.clone_rc()))
         }
         _ => panic!("Failed to define lambda. Expected list, got:{:?}", first_ls),
     }
