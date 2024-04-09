@@ -1,73 +1,68 @@
 use std::panic;
+use std::vec::IntoIter;
 
-use crate::{enviroment::EnvRef, lexer::Token, parser::Expr, primitives, special_forms};
+use crate::{enviroment::EnvRef, lexer::Token, parser::Expr, procedure::Proc};
 
-pub fn eval(expr: &Expr, env: EnvRef) -> Expr {
+pub fn eval(expr: &Expr, env: &EnvRef) -> Expr {
+    let expr = expr.to_owned();
+    let env = env.clone_rc();
     match expr {
         // variable lookup
-        Expr::Atom(Token::Symbol(identifier)) => {
-            env.get_val(identifier).expect("Access unbound variable")
-        }
+        Expr::Atom(Token::Symbol(identifier)) => env
+            .get_val(&identifier)
+            .unwrap_or_else(|| panic!("Attempted accessing unbound variable {:?}", &identifier)),
         // self evaluating
-        Expr::Atom(val) => Expr::Atom(val.clone()),
+        x @ Expr::Atom(_) | x @ Expr::Proc(_) => x,
         // procedure
         Expr::List(ls) => {
-            let operation = ls.get(0).expect("No operator found");
+            let mut ls = ls.into_iter();
+            let operation = ls.next().expect("No operator found");
+            let args = Args::new(ls.collect(), &env);
             match operation {
-                Expr::Atom(Token::Symbol(op_id)) => {
-                    let args = ls[1..].to_vec(); // clones here
-                    try_special(op_id, &args, env.clone_rc())
-                        .or_else(|| try_primitive(op_id, &args, env.clone_rc()))
-                        .unwrap_or_else(|| apply(operation, &args, env))
-                }
-                Expr::List(_) => {
-                    let args = ls[1..].to_vec(); // clones here
-                    apply(operation, &args, env)
-                }
-                _ => panic!("Evaluated invalid expression, {:?}", expr),
+                Expr::Atom(Token::Symbol(_)) => apply(operation, args),
+                Expr::List(_) => apply(operation, args),
+                operation => panic!("Evaluated invalid expression, {:?}", operation),
             }
         }
-
-        // unsure how to handle this case atm
-        Expr::Proc(proc) => Expr::Proc(proc.clone()),
     }
 }
 
-pub fn apply(operation: &Expr, args: &Vec<Expr>, env: EnvRef) -> Expr {
-    let operation = eval(operation, env.clone_rc());
+pub struct Args {
+    args: Vec<Expr>,
+    pub env: EnvRef,
+}
+
+impl Args {
+    pub fn new(args: Vec<Expr>, env: &EnvRef) -> Args {
+        Args {
+            args,
+            env: env.clone_rc(),
+        }
+    }
+
+    pub fn eval(&self) -> Vec<Expr> {
+        self.args
+            .iter()
+            .map(|expr| eval(&expr, &self.env))
+            .collect()
+    }
+
+    pub fn into_iter(self) -> IntoIter<Expr> {
+        self.args.into_iter()
+    }
+
+    pub fn env(&self) -> EnvRef {
+        self.env.clone_rc()
+    }
+}
+
+pub fn apply(operation: Expr, args: Args) -> Expr {
+    let operation = eval(&operation, &args.env());
     match operation {
-        Expr::Proc(proc) => proc.call(eval_list(args, env)),
+        Expr::Proc(proc) => match proc {
+            Proc::Primitive(proc) => proc.call(args),
+            Proc::Compound(proc) => proc.call(args.eval()),
+        },
         _ => panic!("Expected procedure, got {:?}", operation),
-    }
-}
-
-pub fn eval_list(epxrs: &Vec<Expr>, env: EnvRef) -> Vec<Expr> {
-    epxrs
-        .iter()
-        .map(|expr| eval(expr, env.clone_rc()))
-        .collect()
-}
-
-fn try_special(operation: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
-    match operation.trim() {
-        "define" => Some(special_forms::define(args, env)),
-        "lambda" => Some(special_forms::lambda(args, env)),
-        "if" => Some(special_forms::if_statement(args, env)),
-        _ => None,
-    }
-}
-
-fn try_primitive(operation: &str, args: &Vec<Expr>, env: EnvRef) -> Option<Expr> {
-    match operation.trim() {
-        "+" => Some(primitives::add(args, env)),
-        "-" => Some(primitives::subtract(args, env)),
-        "*" => Some(primitives::multiply(args, env)),
-        "/" => Some(primitives::divide(args, env)),
-        "=" => Some(primitives::equality(args, env)),
-        ">" => Some(primitives::greater_than(args, env)),
-        ">=" => Some(primitives::greater_than_or_eq(args, env)),
-        "<" => Some(primitives::less_than(args, env)),
-        "<=" => Some(primitives::less_than_or_eq(args, env)),
-        _ => None,
     }
 }

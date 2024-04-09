@@ -1,27 +1,57 @@
 use crate::{
     enviroment::{Env, EnvRef},
-    evaluator::eval,
+    evaluator::{eval, Args},
     parser::Expr,
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Proc {
+pub enum Proc {
+    Primitive(Primitive),
+    Compound(Compound),
+}
+
+// we can probably make a printing module
+// #[derive(Debug)]
+// #[allow(dead_code)]
+// pub struct PrintProc {
+//     params: Vec<String>,
+//     body: Vec<Expr>,
+// }
+
+impl Proc {
+    pub fn printable(&self) -> &str {
+        match self {
+            Proc::Primitive(_) => "Def Primitive",
+            Proc::Compound(_) => "Def Compound",
+        }
+    }
+}
+
+pub type PSig = fn(Args) -> Expr;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Primitive(PSig);
+
+impl Primitive {
+    pub fn new(proc: PSig) -> Primitive {
+        Primitive(proc)
+    }
+
+    pub fn call(self, args: Args) -> Expr {
+        (self.0)(args)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Compound {
     params: Vec<String>,
     body: Vec<Expr>,
     env: EnvRef,
 }
 
-// we can probably make a printing module
-#[derive(Debug)]
-#[allow(dead_code)]
-pub struct PrintProc {
-    params: Vec<String>,
-    body: Vec<Expr>,
-}
-
-impl Proc {
+impl Compound {
     pub fn new(body: Vec<Expr>, params: Vec<String>, env: EnvRef) -> Proc {
-        Proc { body, params, env }
+        Proc::Compound(Compound { body, params, env })
     }
 
     pub fn call(&self, args: Vec<Expr>) -> Expr {
@@ -36,19 +66,11 @@ impl Proc {
         }
 
         let new_env_ref = EnvRef::new(new_env);
+
         self.body
             .iter()
-            .fold(None, |_returned_expr, expr| {
-                Some(eval(expr, new_env_ref.clone_rc()))
-            })
+            .fold(None, |_returned_expr, expr| Some(eval(expr, &new_env_ref)))
             .unwrap()
         //return None (undefined) is the empty list??
-    }
-
-    pub fn printable(&self) -> PrintProc {
-        PrintProc {
-            params: self.params.clone(),
-            body: self.body.clone(),
-        }
     }
 }

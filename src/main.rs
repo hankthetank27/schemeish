@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fs;
 use std::process;
 
-use schemeish::enviroment::{Env, EnvRef};
+use schemeish::enviroment::EnvRef;
 use schemeish::evaluator;
 use schemeish::lexer::tokenize;
 use schemeish::parser::parse;
@@ -19,10 +19,9 @@ fn main() {
 
     let tokens = tokenize(&file);
     let exprs = parse(tokens);
-    let global_env = Env::new(EnvRef::new_empty());
-    let global_ref = EnvRef::new(global_env);
+    let global = EnvRef::global();
     for exp in exprs.iter() {
-        let evalulated = evaluator::eval(exp, global_ref.clone_rc());
+        let evalulated = evaluator::eval(exp, &global);
         if let Expr::Proc(p) = evalulated {
             println!("{:?}", p.printable())
         } else {
@@ -56,9 +55,8 @@ mod test {
         let scm = "(+ 1 (+ (+ 1 2)(- 2 1) 6 7 8 (- 3 2)))";
         let tokens = tokenize(scm);
         let exprs = parse(tokens);
-        let global_env = Env::new(EnvRef::new_empty());
-        let global_ref = EnvRef::new(global_env);
-        let evalulated = evaluator::eval(exprs.get(0).unwrap(), global_ref);
+        let global = EnvRef::global();
+        let evalulated = evaluator::eval(exprs.get(0).unwrap(), &global);
         assert_eq!(evalulated, Expr::Atom(Token::Number(27.0)));
     }
 }
