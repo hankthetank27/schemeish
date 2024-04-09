@@ -21,7 +21,7 @@ fn main() {
     let exprs = parse(tokens);
     let global = EnvRef::global();
     for exp in exprs.iter() {
-        let evalulated = evaluator::eval(exp, global.clone_rc());
+        let evalulated = evaluator::eval(exp, &global);
         if let Expr::Proc(p) = evalulated {
             println!("{:?}", p.printable())
         } else {
@@ -56,7 +56,7 @@ mod test {
         let tokens = tokenize(scm);
         let exprs = parse(tokens);
         let global = EnvRef::global();
-        let evalulated = evaluator::eval(exprs.get(0).unwrap(), global.clone_rc());
+        let evalulated = evaluator::eval(exprs.get(0).unwrap(), &global);
         assert_eq!(evalulated, Expr::Atom(Token::Number(27.0)));
     }
 }

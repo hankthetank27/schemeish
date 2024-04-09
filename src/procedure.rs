@@ -1,6 +1,6 @@
 use crate::{
     enviroment::{Env, EnvRef},
-    evaluator::eval,
+    evaluator::{eval, Args},
     parser::Expr,
 };
 
@@ -27,18 +27,18 @@ impl Proc {
     }
 }
 
-pub type PSig = fn(&Vec<Expr>, EnvRef) -> Expr;
+pub type PSig = fn(Args) -> Expr;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Primitive(fn(&Vec<Expr>, EnvRef) -> Expr);
+pub struct Primitive(PSig);
 
 impl Primitive {
     pub fn new(proc: PSig) -> Primitive {
         Primitive(proc)
     }
 
-    pub fn call(self, args: Vec<Expr>, env: EnvRef) -> Expr {
-        (self.0)(&args, env)
+    pub fn call(self, args: Args) -> Expr {
+        (self.0)(args)
     }
 }
 
@@ -66,11 +66,10 @@ impl Compound {
         }
 
         let new_env_ref = EnvRef::new(new_env);
+
         self.body
             .iter()
-            .fold(None, |_returned_expr, expr| {
-                Some(eval(expr, new_env_ref.clone_rc()))
-            })
+            .fold(None, |_returned_expr, expr| Some(eval(expr, &new_env_ref)))
             .unwrap()
         //return None (undefined) is the empty list??
     }

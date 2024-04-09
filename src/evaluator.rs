@@ -1,9 +1,12 @@
 use std::panic;
+use std::vec::IntoIter;
 
 use crate::{enviroment::EnvRef, lexer::Token, parser::Expr, procedure::Proc};
 
-pub fn eval(expr: &Expr, env: EnvRef) -> Expr {
-    match expr.to_owned() {
+pub fn eval(expr: &Expr, env: &EnvRef) -> Expr {
+    let expr = expr.to_owned();
+    let env = env.clone_rc();
+    match expr {
         // variable lookup
         Expr::Atom(Token::Symbol(identifier)) => env
             .get_val(&identifier)
@@ -14,30 +17,52 @@ pub fn eval(expr: &Expr, env: EnvRef) -> Expr {
         Expr::List(ls) => {
             let mut ls = ls.into_iter();
             let operation = ls.next().expect("No operator found");
-            let args: Vec<Expr> = ls.collect();
+            let args = Args::new(ls.collect(), &env);
             match operation {
-                Expr::Atom(Token::Symbol(_)) => apply(operation, args, env),
-                Expr::List(_) => apply(operation, args, env),
-                _ => panic!("Evaluated invalid expression, {:?}", &expr),
+                Expr::Atom(Token::Symbol(_)) => apply(operation, args),
+                Expr::List(_) => apply(operation, args),
+                operation => panic!("Evaluated invalid expression, {:?}", operation),
             }
         }
     }
 }
 
-pub fn apply(operation: Expr, args: Vec<Expr>, env: EnvRef) -> Expr {
-    let operation = eval(&operation, env.clone_rc());
-    match operation {
-        Expr::Proc(proc) => match proc {
-            Proc::Primitive(proc) => proc.call(args, env),
-            Proc::Compound(proc) => proc.call(eval_list(&args, env)),
-        },
-        _ => panic!("Expected procedure, got {:?}", operation),
+pub struct Args {
+    args: Vec<Expr>,
+    pub env: EnvRef,
+}
+
+impl Args {
+    pub fn new(args: Vec<Expr>, env: &EnvRef) -> Args {
+        Args {
+            args,
+            env: env.clone_rc(),
+        }
+    }
+
+    pub fn eval(&self) -> Vec<Expr> {
+        self.args
+            .iter()
+            .map(|expr| eval(&expr, &self.env))
+            .collect()
+    }
+
+    pub fn into_iter(self) -> IntoIter<Expr> {
+        self.args.into_iter()
+    }
+
+    pub fn env(&self) -> EnvRef {
+        self.env.clone_rc()
     }
 }
 
-pub fn eval_list(epxrs: &Vec<Expr>, env: EnvRef) -> Vec<Expr> {
-    epxrs
-        .iter()
-        .map(|expr| eval(expr, env.clone_rc()))
-        .collect()
+pub fn apply(operation: Expr, args: Args) -> Expr {
+    let operation = eval(&operation, &args.env());
+    match operation {
+        Expr::Proc(proc) => match proc {
+            Proc::Primitive(proc) => proc.call(args),
+            Proc::Compound(proc) => proc.call(args.eval()),
+        },
+        _ => panic!("Expected procedure, got {:?}", operation),
+    }
 }
