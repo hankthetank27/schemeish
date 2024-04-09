@@ -3,9 +3,8 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     parser::Expr,
-    primitives,
+    primitives::{numeric, special_form},
     procedure::{PSig, Primitive, Proc},
-    special_forms,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -67,18 +66,18 @@ impl Env {
 
 fn install_primitives(env: EnvRef) -> EnvRef {
     let primitives = [
-        ("define", special_forms::define as PSig),
-        ("lambda", special_forms::lambda as PSig),
-        ("if", special_forms::if_statement as PSig),
-        ("+", primitives::add as PSig),
-        ("-", primitives::subtract as PSig),
-        ("*", primitives::multiply as PSig),
-        ("/", primitives::divide as PSig),
-        ("=", primitives::equality as PSig),
-        (">", primitives::greater_than as PSig),
-        (">=", primitives::greater_than_or_eq as PSig),
-        ("<", primitives::less_than as PSig),
-        ("<=", primitives::less_than_or_eq as PSig),
+        ("define", special_form::define as PSig),
+        ("lambda", special_form::lambda as PSig),
+        ("if", special_form::if_statement as PSig),
+        ("+", numeric::add as PSig),
+        ("-", numeric::subtract as PSig),
+        ("*", numeric::multiply as PSig),
+        ("/", numeric::divide as PSig),
+        ("=", numeric::equality as PSig),
+        (">", numeric::greater_than as PSig),
+        (">=", numeric::greater_than_or_eq as PSig),
+        ("<", numeric::less_than as PSig),
+        ("<=", numeric::less_than_or_eq as PSig),
     ];
 
     for (name, proc) in primitives.into_iter() {

@@ -20,7 +20,7 @@ fn main() {
     let tokens = tokenize(&file);
     let exprs = parse(tokens);
     let global = EnvRef::global();
-    for exp in exprs.iter() {
+    for exp in exprs.into_iter() {
         let evalulated = evaluator::eval(exp, &global);
         if let Expr::Proc(p) = evalulated {
             println!("{:?}", p.printable())
@@ -54,7 +54,10 @@ mod test {
         let tokens = tokenize(scm);
         let exprs = parse(tokens);
         let global = EnvRef::global();
-        exprs.iter().map(|e| evaluator::eval(e, &global)).collect()
+        exprs
+            .into_iter()
+            .map(|e| evaluator::eval(e, &global))
+            .collect()
     }
 
     #[test]

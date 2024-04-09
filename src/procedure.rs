@@ -54,7 +54,7 @@ impl Compound {
         Proc::Compound(Compound { body, params, env })
     }
 
-    pub fn call(&self, args: Vec<Expr>) -> Expr {
+    pub fn call(self, args: Vec<Expr>) -> Expr {
         let mut args = args.into_iter();
         let mut new_env = Env::new(self.env.clone_rc());
 
@@ -68,7 +68,7 @@ impl Compound {
         let new_env_ref = EnvRef::new(new_env);
 
         self.body
-            .iter()
+            .into_iter()
             .fold(None, |_returned_expr, expr| Some(eval(expr, &new_env_ref)))
             .unwrap()
         //return None (undefined) is the empty list??
