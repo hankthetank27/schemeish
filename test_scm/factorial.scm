@@ -3,10 +3,9 @@
       1
       (* (term a)
          (product term (next a) next b))))
-
 (define (factorial x)
   (define (id x) x)
   (define (inc x) (+ x 1))
   (product id 1 inc x))
+(factorial 10)
 
-(factorial 5)

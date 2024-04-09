@@ -29,7 +29,7 @@ pub fn eval(expr: &Expr, env: &EnvRef) -> Expr {
 
 pub struct Args {
     args: Vec<Expr>,
-    pub env: EnvRef,
+    env: EnvRef,
 }
 
 impl Args {
