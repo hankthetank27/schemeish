@@ -21,11 +21,15 @@ fn main() {
     let exprs = parse(tokens);
     let global = EnvRef::global();
     for exp in exprs.into_iter() {
-        let evalulated = evaluator::eval(exp, &global);
-        if let Expr::Proc(p) = evalulated {
-            println!("{:?}", p.printable())
-        } else {
-            println!("{:?}", evalulated)
+        match evaluator::eval(exp, &global) {
+            Ok(evalulated) => {
+                if let Expr::Proc(p) = evalulated {
+                    println!("{:?}", p.printable())
+                } else {
+                    println!("{:?}", evalulated)
+                }
+            }
+            Err(err) => eprintln!("{err}"),
         }
     }
 }
@@ -46,11 +50,21 @@ where
 
 #[cfg(test)]
 mod test {
-    use schemeish::{lexer::Token, parser::Expr};
+    use schemeish::{error::EvalErr, lexer::Token, parser::Expr};
 
     use super::*;
 
     fn eval_test(scm: &str) -> Vec<Expr> {
+        let tokens = tokenize(scm);
+        let exprs = parse(tokens);
+        let global = EnvRef::global();
+        exprs
+            .into_iter()
+            .map(|e| evaluator::eval(e, &global).unwrap_or_else(|err| panic!("{err}")))
+            .collect()
+    }
+
+    fn eval_err_test(scm: &str) -> Vec<Result<Expr, EvalErr>> {
         let tokens = tokenize(scm);
         let exprs = parse(tokens);
         let global = EnvRef::global();
@@ -102,6 +116,19 @@ mod test {
     }
 
     #[test]
+    fn nested_proc() {
+        let scm = "
+            (define (add-with-ten x y)
+              (define (add b c) (+ 10 b c))
+              (+ (add x x) (add y y))) 
+            (- (add-with-ten 1 1) 5 5)";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(1).unwrap().to_owned();
+        assert_eq!(res, Expr::Atom(Token::Number(14.0)));
+    }
+
+    #[test]
     fn factorial() {
         let scm = "
             (define (product term a next b)
@@ -121,16 +148,21 @@ mod test {
     }
 
     #[test]
-    fn nested_proc() {
-        let scm = "
-            (define (add-with-ten x y)
-              (define (add b c) (+ 10 b c))
-              (+ (add x x) (add y y))) 
-            (- (add-with-ten 1 1) 5 5)";
+    fn type_error() {
+        let scm = "(define 1 2)";
 
-        let evalulated = eval_test(scm);
-        let res = evalulated.get(1).unwrap().to_owned();
-        assert_eq!(res, Expr::Atom(Token::Number(14.0)));
+        let evalulated = eval_err_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        match res {
+            Err(e) => {
+                let x = match e {
+                    EvalErr::TypeError(_) => true,
+                    _ => false,
+                };
+                assert!(x)
+            }
+            Ok(e) => panic!("Expected error, got {:?}", e),
+        }
     }
 
     #[test]

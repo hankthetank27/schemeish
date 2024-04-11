@@ -2,9 +2,10 @@ use core::cell::RefCell;
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
+    error::EvalErr,
     parser::Expr,
-    primitives::{numeric, special_form},
-    procedure::{PSig, Primitive, Proc},
+    primitives::{numeric, special_form, utils::ToExpr},
+    procedure::{PSig, Primitive},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,12 +29,21 @@ impl EnvRef {
         EnvRef(Rc::clone(&self.0))
     }
 
-    pub fn get_val(&self, name: &str) -> Option<Expr> {
-        self.0.borrow_mut().as_ref()?.get_val(name)
+    pub fn get_val(&self, name: &str) -> Result<Expr, EvalErr> {
+        self.0
+            .borrow_mut()
+            .as_ref()
+            .ok_or_else(|| EvalErr::UnboundVar(name.to_string()))?
+            .get_val(name)
     }
 
-    pub fn insert_val(&self, name: String, val: Expr) -> Option<Expr> {
-        Some(self.0.borrow_mut().as_mut()?.insert_val(name, val))
+    pub fn insert_val(&self, name: String, val: Expr) -> Result<Expr, EvalErr> {
+        Ok(self
+            .0
+            .borrow_mut()
+            .as_mut()
+            .ok_or_else(|| EvalErr::NilEnv)?
+            .insert_val(name, val))
     }
 }
 
@@ -51,11 +61,11 @@ impl Env {
         }
     }
 
-    pub fn get_val(&self, name: &str) -> Option<Expr> {
-        self.values
-            .get(name)
-            .cloned()
-            .or_else(|| self.parent.get_val(name))
+    pub fn get_val(&self, name: &str) -> Result<Expr, EvalErr> {
+        match self.values.get(name).cloned() {
+            Some(val) => Ok(val),
+            None => self.parent.get_val(name),
+        }
     }
 
     pub fn insert_val(&mut self, name: String, val: Expr) -> Expr {
@@ -81,10 +91,8 @@ fn install_primitives(env: EnvRef) -> EnvRef {
     ];
 
     for (name, proc) in primitives.into_iter() {
-        env.insert_val(
-            name.to_string(),
-            Expr::Proc(Proc::Primitive(Primitive::new(proc))),
-        );
+        env.insert_val(name.to_string(), Primitive::new(proc).to_expr())
+            .unwrap_or_else(|err| panic!("unable to initalize global enviroment. {err}"));
     }
 
     env

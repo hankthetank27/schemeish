@@ -1,5 +1,6 @@
 use crate::{
     enviroment::{Env, EnvRef},
+    error::EvalErr,
     evaluator::{eval, Args},
     parser::Expr,
 };
@@ -27,17 +28,17 @@ impl Proc {
     }
 }
 
-pub type PSig = fn(Args) -> Expr;
+pub type PSig = fn(Args) -> Result<Expr, EvalErr>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Primitive(PSig);
 
 impl Primitive {
-    pub fn new(proc: PSig) -> Primitive {
-        Primitive(proc)
+    pub fn new(proc: PSig) -> Proc {
+        Proc::Primitive(Primitive(proc))
     }
 
-    pub fn call(self, args: Args) -> Expr {
+    pub fn call(self, args: Args) -> Result<Expr, EvalErr> {
         (self.0)(args)
     }
 }
@@ -54,7 +55,7 @@ impl Compound {
         Proc::Compound(Compound { body, params, env })
     }
 
-    pub fn call(self, args: Vec<Expr>) -> Expr {
+    pub fn call(self, args: Vec<Expr>) -> Result<Expr, EvalErr> {
         let mut args = args.into_iter();
         let mut new_env = Env::new(self.env.clone_rc());
 

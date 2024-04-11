@@ -1,24 +1,28 @@
-use crate::{lexer::Token, parser::Expr, procedure::Proc};
+use crate::{error::EvalErr, lexer::Token, parser::Expr, procedure::Proc};
 use std::iter::Peekable;
 
 pub trait IterInnerVal {
-    fn into_nums(self) -> impl Iterator<Item = f64>;
-    fn into_strings(self) -> impl Iterator<Item = String>;
+    fn into_nums(self) -> Result<Vec<f64>, EvalErr>;
+    fn into_strings(self) -> Result<Vec<String>, EvalErr>;
 }
 
 impl IterInnerVal for Vec<Expr> {
-    fn into_nums(self) -> impl Iterator<Item = f64> {
-        self.into_iter().map(|expr| match expr {
-            Expr::Atom(Token::Number(n)) => n,
-            _ => panic!("Expected number, got {:?}", expr),
-        })
+    fn into_nums(self) -> Result<Vec<f64>, EvalErr> {
+        self.into_iter()
+            .map(|expr| match expr {
+                Expr::Atom(Token::Number(n)) => Ok(n),
+                _ => Err(EvalErr::TypeError(("number", expr))),
+            })
+            .collect()
     }
 
-    fn into_strings(self) -> impl Iterator<Item = String> {
-        self.into_iter().map(|expr| match expr {
-            Expr::Atom(Token::Symbol(name)) => name.to_string(),
-            _ => panic!("Expected symbol as parameter, got {:?}", expr),
-        })
+    fn into_strings(self) -> Result<Vec<String>, EvalErr> {
+        self.into_iter()
+            .map(|expr| match expr {
+                Expr::Atom(Token::Symbol(name)) => Ok(name.to_string()),
+                _ => Err(EvalErr::TypeError(("symbol", expr))),
+            })
+            .collect()
     }
 }
 
