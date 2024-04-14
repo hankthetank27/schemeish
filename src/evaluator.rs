@@ -7,7 +7,7 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
         // variable lookup
         Expr::Atom(Token::Symbol(ref identifier)) => env.get_val(identifier),
         // self evaluating
-        x @ Expr::Atom(_) | x @ Expr::Proc(_) => Ok(x),
+        x @ Expr::Atom(_) | x @ Expr::Proc(_) | x @ Expr::EmptyList => Ok(x),
         // procedure
         Expr::List(ls) => {
             let mut ls = ls.into_iter();

@@ -1,5 +1,6 @@
 use crate::{error::EvalErr, lexer::Token, parser::Expr, procedure::Proc};
 use std::iter::Peekable;
+use std::vec::IntoIter;
 
 pub trait IterInnerVal {
     fn into_nums(self) -> Result<Vec<f64>, EvalErr>;
@@ -30,15 +31,12 @@ pub trait HasNext<I: Iterator> {
     fn has_next(self) -> Option<Peekable<I>>;
 }
 
-impl<I> HasNext<I> for Peekable<I>
+impl<I, T> HasNext<I> for Peekable<I>
 where
-    I: Iterator<Item = f64>,
+    I: Iterator<Item = T>,
 {
     fn has_next(mut self) -> Option<Peekable<I>> {
-        match self.peek().is_some() {
-            true => Some(self),
-            false => None,
-        }
+        self.peek().is_some().then(|| self)
     }
 }
 
@@ -61,5 +59,47 @@ impl ToExpr for Proc {
 impl ToExpr for bool {
     fn to_expr(self) -> Expr {
         Expr::Atom(Token::Boolean(self))
+    }
+}
+
+impl ToExpr for Vec<Expr> {
+    fn to_expr(self) -> Expr {
+        Expr::List(self)
+    }
+}
+
+pub trait GetVals {
+    fn get_one(&mut self) -> Result<Expr, EvalErr>;
+    fn get_two(&mut self) -> Result<(Expr, Expr), EvalErr>;
+    fn get_three(&mut self) -> Result<(Expr, Expr, Expr), EvalErr>;
+    fn get_one_and_rest(self) -> Result<(Expr, IntoIter<Expr>), EvalErr>;
+}
+
+// this is not the right error message
+impl GetVals for IntoIter<Expr> {
+    fn get_one(&mut self) -> Result<Expr, EvalErr> {
+        self.next()
+            .ok_or_else(|| EvalErr::InvalidArgs("not enough arguments"))
+    }
+
+    fn get_two(&mut self) -> Result<(Expr, Expr), EvalErr> {
+        let err = || EvalErr::InvalidArgs("not enough arguments");
+        let first = self.next().ok_or_else(err)?;
+        let second = self.next().ok_or_else(err)?;
+        Ok((first, second))
+    }
+
+    fn get_three(&mut self) -> Result<(Expr, Expr, Expr), EvalErr> {
+        let err = || EvalErr::InvalidArgs("not enough arguments");
+        let first = self.next().ok_or_else(err)?;
+        let second = self.next().ok_or_else(err)?;
+        let third = self.next().ok_or_else(err)?;
+        Ok((first, second, third))
+    }
+
+    fn get_one_and_rest(mut self) -> Result<(Expr, IntoIter<Expr>), EvalErr> {
+        let err = || EvalErr::InvalidArgs("not enough arguments");
+        let first = self.next().ok_or_else(err)?;
+        Ok((first, self))
     }
 }

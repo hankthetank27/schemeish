@@ -3,14 +3,13 @@ use crate::{
     evaluator::{eval, Args},
     lexer::Token,
     parser::Expr,
-    primitives::utils::{IterInnerVal, ToExpr},
+    primitives::utils::{GetVals, IterInnerVal, ToExpr},
     procedure::Compound,
 };
 
 pub fn define(args: Args) -> Result<Expr, EvalErr> {
     let env = args.env();
-    let mut args = args.into_iter();
-    let identifier = args.next().expect("Expected identifier");
+    let (identifier, mut args) = args.into_iter().get_one_and_rest()?;
     match identifier {
         //bind var
         Expr::Atom(Token::Symbol(identifier)) => {
@@ -35,8 +34,7 @@ pub fn define(args: Args) -> Result<Expr, EvalErr> {
 
 pub fn lambda(args: Args) -> Result<Expr, EvalErr> {
     let env = args.env();
-    let mut args = args.into_iter();
-    let first_expr = args.next().expect("Expected list of parameters");
+    let (first_expr, args) = args.into_iter().get_one_and_rest()?;
     match first_expr {
         Expr::List(first_expr) => {
             let proc_args = first_expr.into_strings()?;
@@ -51,9 +49,7 @@ pub fn lambda(args: Args) -> Result<Expr, EvalErr> {
 pub fn if_statement(args: Args) -> Result<Expr, EvalErr> {
     let env = args.env();
     let mut args = args.into_iter();
-    let predicate = args.next().expect("Expected predicate");
-    let consequence = args.next().expect("Expected consequence");
-    let alternative = args.next().expect("Expected alternative");
+    let (predicate, consequence, alternative) = args.get_three()?;
     match eval(predicate, &env)? {
         Expr::Atom(Token::Boolean(true)) => eval(consequence, &env),
         Expr::Atom(Token::Boolean(false)) => eval(alternative, &env),

@@ -148,6 +148,21 @@ mod test {
     }
 
     #[test]
+    fn iter_list() {
+        let scm = "
+            (define (last-pair list)
+              (if (null? (cdr list))
+                  (car list)
+                  (last-pair (cdr list))))
+
+            (last-pair (list 23 72 149 34))";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(1).unwrap().to_owned();
+        assert_eq!(res, Expr::Atom(Token::Number(34.0)));
+    }
+
+    #[test]
     fn type_error() {
         let scm = "(define 1 2)";
 

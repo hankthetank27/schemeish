@@ -66,18 +66,12 @@ where
     F: Fn(f64, f64) -> bool,
 {
     let mut nums = args.eval()?.into_nums()?.into_iter().peekable();
+    let err = EvalErr::InvalidArgs("Procedure requires at least two arguments");
     match nums.next() {
         Some(first) => {
-            let sum_rest = nums
-                .has_next()
-                .ok_or(EvalErr::InvalidArgs(
-                    "Procedure requires at least two arguments",
-                ))?
-                .sum();
+            let sum_rest = nums.has_next().ok_or(err)?.sum();
             Ok(cmp(first, sum_rest).to_expr())
         }
-        None => Err(EvalErr::InvalidArgs(
-            "Procedure requires at least two argument",
-        )),
+        None => Err(err),
     }
 }

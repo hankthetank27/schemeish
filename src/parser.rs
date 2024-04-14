@@ -7,6 +7,7 @@ pub enum Expr {
     List(Vec<Expr>),
     Atom(Token),
     Proc(Proc),
+    EmptyList,
 }
 
 pub fn parse(tokens: Vec<Token>) -> Vec<Expr> {

@@ -70,8 +70,9 @@ impl Compound {
 
         self.body
             .into_iter()
-            .fold(None, |_returned_expr, expr| Some(eval(expr, &new_env_ref)))
-            .unwrap()
-        //return None (undefined) is the empty list??
+            // the empty list?
+            .fold(Ok(Expr::List(vec![])), |_returned_expr, expr| {
+                eval(expr, &new_env_ref)
+            })
     }
 }

@@ -1,12 +1,11 @@
 use core::cell::RefCell;
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
+use std::rc::Rc;
 
-use crate::{
-    error::EvalErr,
-    parser::Expr,
-    primitives::{numeric, special_form, utils::ToExpr},
-    procedure::{PSig, Primitive},
-};
+use crate::error::EvalErr;
+use crate::parser::Expr;
+use crate::primitives::{list, numeric, special_form, utils::ToExpr};
+use crate::procedure::{PSig, Primitive};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnvRef(Rc<RefCell<Option<Env>>>);
@@ -31,19 +30,18 @@ impl EnvRef {
 
     pub fn get_val(&self, name: &str) -> Result<Expr, EvalErr> {
         self.0
-            .borrow_mut()
+            .borrow()
             .as_ref()
             .ok_or_else(|| EvalErr::UnboundVar(name.to_string()))?
             .get_val(name)
     }
 
     pub fn insert_val(&self, name: String, val: Expr) -> Result<Expr, EvalErr> {
-        Ok(self
-            .0
+        self.0
             .borrow_mut()
             .as_mut()
-            .ok_or_else(|| EvalErr::NilEnv)?
-            .insert_val(name, val))
+            .ok_or(EvalErr::NilEnv)
+            .map(|env| env.insert_val(name, val))
     }
 }
 
@@ -62,10 +60,10 @@ impl Env {
     }
 
     pub fn get_val(&self, name: &str) -> Result<Expr, EvalErr> {
-        match self.values.get(name).cloned() {
-            Some(val) => Ok(val),
-            None => self.parent.get_val(name),
-        }
+        self.values
+            .get(name)
+            .cloned()
+            .map_or_else(|| self.parent.get_val(name), Ok)
     }
 
     pub fn insert_val(&mut self, name: String, val: Expr) -> Expr {
@@ -88,6 +86,11 @@ fn install_primitives(env: EnvRef) -> EnvRef {
         (">=", numeric::greater_than_or_eq as PSig),
         ("<", numeric::less_than as PSig),
         ("<=", numeric::less_than_or_eq as PSig),
+        ("cons", list::cons as PSig),
+        ("car", list::car as PSig),
+        ("cdr", list::cdr as PSig),
+        ("list", list::list as PSig),
+        ("null?", list::null_check as PSig),
     ];
 
     for (name, proc) in primitives.into_iter() {
