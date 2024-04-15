@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::error::EvalErr;
 use crate::parser::Expr;
-use crate::primitives::{list, numeric, special_form, utils::ToExpr};
+use crate::primitives::{numeric, pair, special_form, utils::ToExpr};
 use crate::procedure::{PSig, Primitive};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -86,11 +86,11 @@ fn install_primitives(env: EnvRef) -> EnvRef {
         (">=", numeric::greater_than_or_eq as PSig),
         ("<", numeric::less_than as PSig),
         ("<=", numeric::less_than_or_eq as PSig),
-        ("cons", list::cons as PSig),
-        ("car", list::car as PSig),
-        ("cdr", list::cdr as PSig),
-        ("nil", list::nil as PSig),
-        ("null?", list::null_check as PSig),
+        ("cons", pair::cons as PSig),
+        ("car", pair::car as PSig),
+        ("cdr", pair::cdr as PSig),
+        ("nil", pair::nil as PSig),
+        ("null?", pair::null_check as PSig),
         // ("list", list::list as PSig),
     ];
 

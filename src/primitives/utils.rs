@@ -1,6 +1,11 @@
-use crate::{error::EvalErr, lexer::Token, parser::Expr, procedure::Proc};
 use std::iter::Peekable;
 use std::vec::IntoIter;
+
+use crate::error::EvalErr;
+use crate::lexer::Token;
+use crate::parser::Expr;
+use crate::primitives::pair::Pair;
+use crate::procedure::Proc;
 
 pub trait IterInnerVal {
     fn into_nums(self) -> Result<Vec<f64>, EvalErr>;
@@ -65,6 +70,12 @@ impl ToExpr for bool {
 impl ToExpr for Vec<Expr> {
     fn to_expr(self) -> Expr {
         Expr::List(self)
+    }
+}
+
+impl ToExpr for Pair {
+    fn to_expr(self) -> Expr {
+        Expr::Dotted(self)
     }
 }
 

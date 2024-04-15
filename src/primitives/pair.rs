@@ -41,7 +41,7 @@ pub fn cons(args: Args) -> Result<Expr, EvalErr> {
             Ok(ls.to_expr())
         }
         x @ Expr::Dotted(_) | x @ Expr::Atom(_) | x @ Expr::Proc(_) | x @ Expr::EmptyList => {
-            Ok(Expr::Dotted(Pair::new(first, x)))
+            Ok(Pair::new(first, x).to_expr())
         }
     }
 }

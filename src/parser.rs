@@ -1,7 +1,7 @@
 use std::iter::Peekable;
 
 use crate::lexer::Token;
-use crate::primitives::list::Pair;
+use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
 
 #[derive(Debug, Clone, PartialEq)]

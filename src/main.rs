@@ -8,15 +8,28 @@ use schemeish::evaluator;
 use schemeish::lexer::tokenize;
 use schemeish::parser::parse;
 use schemeish::parser::Expr;
+use schemeish::repl;
+
+enum Runtime {
+    File(String),
+    Repl,
+}
 
 fn main() {
     let mut args = env::args();
 
-    let file = read(&mut args).unwrap_or_else(|err| {
+    let runtime = read(&mut args).unwrap_or_else(|err| {
         eprint!("{err}");
         process::exit(1);
     });
 
+    match runtime {
+        Runtime::File(f) => run_from_file(&f),
+        Runtime::Repl => repl::run(),
+    }
+}
+
+fn run_from_file(file: &str) {
     let tokens = tokenize(&file);
     let exprs = parse(tokens);
     let global = EnvRef::global();
@@ -34,7 +47,7 @@ fn main() {
     }
 }
 
-fn read<T>(args: &mut T) -> Result<String, Box<dyn Error>>
+fn read<T>(args: &mut T) -> Result<Runtime, Box<dyn Error>>
 where
     T: Iterator<Item = String>,
 {
@@ -42,19 +55,21 @@ where
 
     let path = match args.next() {
         Some(path) => path,
-        None => return Err("Usage: rsscheme file_path.scm".into()),
+        None => return Ok(Runtime::Repl),
     };
 
-    Ok(fs::read_to_string(path)?)
+    Ok(Runtime::File(fs::read_to_string(path)?))
 }
 
 #[cfg(test)]
 mod test {
+    use core::panic;
+
     use schemeish::{
         error::EvalErr,
         lexer::Token::Number,
         parser::Expr::{Atom, Dotted, EmptyList},
-        primitives::list::Pair,
+        primitives::pair::Pair,
     };
 
     use super::*;
@@ -217,7 +232,10 @@ mod test {
     #[test]
     fn read_file() {
         let mut path = vec!["".to_string(), "./test_scm/factorial.scm".to_string()].into_iter();
-        let scm = read(&mut path).unwrap();
+        let scm = match read(&mut path).unwrap() {
+            Runtime::File(f) => f,
+            Runtime::Repl => panic!("expected file"),
+        };
         let evalulated = eval_test(&scm);
         let res = evalulated.get(2).unwrap().to_owned();
         assert_eq!(res, Atom(Number(3628800.0)));

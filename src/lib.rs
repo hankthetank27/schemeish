@@ -5,3 +5,4 @@ pub mod lexer;
 pub mod parser;
 pub mod primitives;
 pub mod procedure;
+pub mod repl;
