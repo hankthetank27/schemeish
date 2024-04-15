@@ -1,12 +1,15 @@
 use std::iter::Peekable;
 
-use crate::{lexer::Token, procedure::Proc};
+use crate::lexer::Token;
+use crate::primitives::list::Pair;
+use crate::procedure::Proc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     List(Vec<Expr>),
     Atom(Token),
     Proc(Proc),
+    Dotted(Pair),
     EmptyList,
 }
 

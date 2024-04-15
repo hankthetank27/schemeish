@@ -50,7 +50,12 @@ where
 
 #[cfg(test)]
 mod test {
-    use schemeish::{error::EvalErr, lexer::Token, parser::Expr};
+    use schemeish::{
+        error::EvalErr,
+        lexer::Token::Number,
+        parser::Expr::{Atom, Dotted, EmptyList},
+        primitives::list::Pair,
+    };
 
     use super::*;
 
@@ -81,7 +86,7 @@ mod test {
 
         let evalulated = eval_test(scm);
         let res = evalulated.get(0).unwrap().to_owned();
-        assert_eq!(res, Expr::Atom(Token::Number(27.0)));
+        assert_eq!(res, Atom(Number(27.0)));
     }
 
     #[test]
@@ -97,8 +102,8 @@ mod test {
         let evalulated = eval_test(scm);
         let res1 = evalulated.get(1).unwrap().to_owned();
         let res2 = evalulated.get(2).unwrap().to_owned();
-        assert_eq!(res1, Expr::Atom(Token::Number(20.0)));
-        assert_eq!(res2, Expr::Atom(Token::Number(10.0)));
+        assert_eq!(res1, Atom(Number(20.0)));
+        assert_eq!(res2, Atom(Number(10.0)));
     }
 
     #[test]
@@ -112,7 +117,7 @@ mod test {
 
         let evalulated = eval_test(scm);
         let res = evalulated.get(0).unwrap().to_owned();
-        assert_eq!(res, Expr::Atom(Token::Number(7.0)));
+        assert_eq!(res, Atom(Number(7.0)));
     }
 
     #[test]
@@ -125,7 +130,7 @@ mod test {
 
         let evalulated = eval_test(scm);
         let res = evalulated.get(1).unwrap().to_owned();
-        assert_eq!(res, Expr::Atom(Token::Number(14.0)));
+        assert_eq!(res, Atom(Number(14.0)));
     }
 
     #[test]
@@ -144,7 +149,7 @@ mod test {
 
         let evalulated = eval_test(scm);
         let res = evalulated.get(2).unwrap().to_owned();
-        assert_eq!(res, Expr::Atom(Token::Number(3628800.0)));
+        assert_eq!(res, Atom(Number(3628800.0)));
     }
 
     #[test]
@@ -154,12 +159,41 @@ mod test {
               (if (null? (cdr list))
                   (car list)
                   (last-pair (cdr list))))
-
-            (last-pair (list 23 72 149 34))";
+            (define ls (cons 23 (cons 72 (cons 149 (nil)))))
+            (last-pair ls)";
 
         let evalulated = eval_test(scm);
-        let res = evalulated.get(1).unwrap().to_owned();
-        assert_eq!(res, Expr::Atom(Token::Number(34.0)));
+        let res = evalulated.get(2).unwrap().to_owned();
+        assert_eq!(res, Atom(Number(149.0)));
+    }
+
+    #[test]
+    fn map_list() {
+        let scm = "
+            (define (map ls fn)
+              (if (null? ls)
+                (nil)
+                (cons (fn (car ls))
+                      (map (cdr ls) fn))))
+
+            (define ls (cons 1 (cons 2 (cons 3 (nil)))))
+            (map ls (lambda (x) (* x 2)))";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(2).unwrap().to_owned();
+        assert_eq!(
+            res,
+            Dotted(Pair {
+                car: Box::new(Atom(Number(2.0))),
+                cdr: Box::new(Dotted(Pair {
+                    car: Box::new(Atom(Number(4.0))),
+                    cdr: Box::new(Dotted(Pair {
+                        car: Box::new(Atom(Number(6.0))),
+                        cdr: Box::new(EmptyList)
+                    }))
+                }))
+            })
+        )
     }
 
     #[test]
@@ -186,6 +220,6 @@ mod test {
         let scm = read(&mut path).unwrap();
         let evalulated = eval_test(&scm);
         let res = evalulated.get(2).unwrap().to_owned();
-        assert_eq!(res, Expr::Atom(Token::Number(3628800.0)));
+        assert_eq!(res, Atom(Number(3628800.0)));
     }
 }

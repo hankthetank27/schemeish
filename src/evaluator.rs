@@ -1,18 +1,22 @@
 use std::vec::IntoIter;
 
-use crate::{enviroment::EnvRef, error::EvalErr, lexer::Token, parser::Expr, procedure::Proc};
+use crate::enviroment::EnvRef;
+use crate::error::EvalErr;
+use crate::lexer::Token;
+use crate::parser::Expr;
+use crate::primitives::utils::GetVals;
+use crate::procedure::Proc;
 
 pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
     match expr {
         // variable lookup
         Expr::Atom(Token::Symbol(ref identifier)) => env.get_val(identifier),
         // self evaluating
-        x @ Expr::Atom(_) | x @ Expr::Proc(_) | x @ Expr::EmptyList => Ok(x),
+        x @ Expr::Atom(_) | x @ Expr::Proc(_) | x @ Expr::EmptyList | x @ Expr::Dotted(_) => Ok(x),
         // procedure
         Expr::List(ls) => {
-            let mut ls = ls.into_iter();
-            let operation = ls.next().expect("No operator found");
-            let args = Args::new(ls.collect(), env);
+            let (operation, args) = ls.into_iter().get_one_and_rest()?;
+            let args = Args::new(args.collect(), env);
             match operation {
                 Expr::Atom(Token::Symbol(_)) => apply(operation, args),
                 Expr::List(_) => apply(operation, args),
