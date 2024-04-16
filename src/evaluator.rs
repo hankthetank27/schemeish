@@ -1,5 +1,3 @@
-use std::vec::IntoIter;
-
 use crate::enviroment::EnvRef;
 use crate::error::EvalErr;
 use crate::lexer::Token;
@@ -56,11 +54,16 @@ impl Args {
             .collect()
     }
 
-    pub fn into_iter(self) -> IntoIter<Expr> {
-        self.args.into_iter()
-    }
-
     pub fn env(&self) -> EnvRef {
         self.env.clone_rc()
+    }
+}
+
+impl IntoIterator for Args {
+    type Item = Expr;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.args.into_iter()
     }
 }

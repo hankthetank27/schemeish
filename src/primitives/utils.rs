@@ -41,7 +41,7 @@ where
     I: Iterator<Item = T>,
 {
     fn has_next(mut self) -> Option<Peekable<I>> {
-        self.peek().is_some().then(|| self)
+        self.peek().is_some().then_some(self)
     }
 }
 

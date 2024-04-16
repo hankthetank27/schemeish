@@ -1,6 +1,8 @@
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
+use crate::error::ParseErr;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     LParen,
@@ -11,19 +13,21 @@ pub enum Token {
     Str(String),
 }
 
-pub fn tokenize(input: &str) -> Vec<Token> {
+pub fn tokenize(input: &str) -> TokenRes<Vec<Token>> {
     input.chars().peekable().collect_tokens(vec![])
 }
+
+type TokenRes<T> = Result<T, ParseErr>;
 
 trait TokenIterator<T>
 where
     T: Iterator<Item = char>,
 {
-    fn collect_tokens(&mut self, tokens: Vec<Token>) -> Vec<Token>;
-    fn parse_token(&mut self) -> Option<Token>;
-    fn parse_bool(&mut self) -> Token;
-    fn parse_string(&mut self) -> Token;
-    fn parse_symbol(&mut self) -> Token;
+    fn collect_tokens(&mut self, tokens: Vec<Token>) -> TokenRes<Vec<Token>>;
+    fn parse_token(&mut self) -> Option<TokenRes<Token>>;
+    fn parse_bool(&mut self) -> TokenRes<Token>;
+    fn parse_string(&mut self) -> TokenRes<Token>;
+    fn parse_symbol(&mut self) -> TokenRes<Token>;
     fn advance_to_token(&mut self) -> &Self;
     fn take_until<F: Fn(&T::Item) -> bool>(&mut self, pred: F) -> IntoIter<T::Item>;
 }
@@ -32,27 +36,26 @@ impl<T> TokenIterator<T> for Peekable<T>
 where
     T: Iterator<Item = char>,
 {
-    fn collect_tokens(&mut self, mut tokens: Vec<Token>) -> Vec<Token> {
+    fn collect_tokens(&mut self, mut tokens: Vec<Token>) -> TokenRes<Vec<Token>> {
         self.advance_to_token();
         match self.parse_token() {
             Some(token) => {
-                tokens.push(token);
+                tokens.push(token?);
                 self.collect_tokens(tokens)
             }
-            None => tokens,
+            None => Ok(tokens),
         }
     }
 
-    //TODO: return result type, handling parse errors
-    fn parse_token(&mut self) -> Option<Token> {
+    fn parse_token(&mut self) -> Option<TokenRes<Token>> {
         match self.peek()? {
             '(' => {
                 self.next();
-                Some(Token::LParen)
+                Some(Ok(Token::LParen))
             }
             ')' => {
                 self.next();
-                Some(Token::RParen)
+                Some(Ok(Token::RParen))
             }
             '#' => {
                 self.next();
@@ -66,44 +69,49 @@ where
         }
     }
 
-    fn parse_bool(&mut self) -> Token {
-        //TODO: handle charater sequences error, ie. #tt, #fasdf
+    fn parse_bool(&mut self) -> TokenRes<Token> {
         match self.next() {
-            Some('t') => Token::Boolean(true),
-            Some('f') => Token::Boolean(false),
-            //TODO: impl error types
-            Some(c) => panic!("Expected #t or #f, got #{c}"),
-            None => panic!("Expected #t or #f, got nothing"),
+            Some('t') => Ok(Token::Boolean(true)),
+            Some('f') => Ok(Token::Boolean(false)),
+            Some(c) => Err(ParseErr::UnexpectedToken(
+                format!("expected #t or #f, got #{}", c).to_string(),
+            )),
+            None => Err(ParseErr::MalformedToken(
+                "expected charater indicating bool type",
+            )),
         }
     }
 
-    fn parse_string(&mut self) -> Token {
-        //TODO: impl error for unclosed string
+    fn parse_string(&mut self) -> TokenRes<Token> {
         let value: String = self.take_until(|c| c != &'"').collect();
-        self.next(); //consume remaining quote
-        Token::Str(value)
+        self.next()
+            .ok_or(ParseErr::MalformedToken("unclosed string"))?; //consume remaining quote
+        Ok(Token::Str(value))
     }
 
-    fn parse_symbol(&mut self) -> Token {
+    fn parse_symbol(&mut self) -> TokenRes<Token> {
         let value: String = self
             .take_until(|c| !c.is_whitespace() && c != &')' && c != &'(')
             .collect();
 
-        parse_number(&value).unwrap_or_else(|| Token::Symbol(value))
+        Ok(parse_number(&value).unwrap_or(Token::Symbol(value)))
     }
 
     fn advance_to_token(&mut self) -> &Self {
         match self.next_if(|c| c.is_whitespace()) {
-            Some(_) => &self.advance_to_token(),
+            Some(_) => self.advance_to_token(),
             None => self,
         }
     }
 
-    fn take_until<F: Fn(&T::Item) -> bool>(&mut self, pred: F) -> IntoIter<T::Item> {
+    fn take_until<F>(&mut self, pred: F) -> IntoIter<T::Item>
+    where
+        F: Fn(&T::Item) -> bool,
+    {
         let mut new = vec![];
 
         while self.peek().map_or(false, &pred) {
-            new.push(self.next().unwrap());
+            new.push(self.next().unwrap())
         }
 
         new.into_iter()
@@ -143,7 +151,7 @@ mod test {
             Token::Boolean(false),
             Token::RParen,
         ];
-        let tokens = tokenize(&scm);
+        let tokens = tokenize(&scm).unwrap();
         assert_eq!(tokens, res);
     }
 
@@ -151,7 +159,7 @@ mod test {
     fn tokenise_empty() {
         let scm = "";
         let res: Vec<Token> = vec![];
-        let tokens = tokenize(&scm);
+        let tokens = tokenize(&scm).unwrap();
         assert_eq!(tokens, res);
     }
 
@@ -159,22 +167,21 @@ mod test {
     fn tokenise_symbol() {
         let scm = "yoda";
         let res: Vec<Token> = vec![Token::Symbol("yoda".to_string())];
-        let tokens = tokenize(&scm);
+        let tokens = tokenize(&scm).unwrap();
         assert_eq!(tokens, res);
     }
 
-    //TODO: THIS SHOULD ERROR
-    // #[test]
-    // fn tokenise_unclosed_string() {
-    //     let scm = format!(r##" "sup"##);
-    //     let tokens = tokenize(&scm);
-    //     assert_eq!(tokens, error_type_here);
-    // }
+    #[test]
+    #[should_panic]
+    fn tokenise_unclosed_string() {
+        let scm = format!(r##" "sup"##);
+        tokenize(&scm).unwrap();
+    }
 
     #[test]
     #[should_panic]
     fn hash_error() {
         let scm = "(#t #f #c)";
-        tokenize(&scm);
+        tokenize(&scm).unwrap();
     }
 }

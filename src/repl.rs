@@ -13,28 +13,43 @@ pub fn run() {
     let global = EnvRef::global();
 
     loop {
-        let mut exprs = String::new();
-
         print!("> ");
         io::stdout().flush().unwrap();
 
-        io::stdin()
-            .read_line(&mut exprs)
-            .expect("Failed to read line");
+        let mut exprs = String::new();
 
-        let tokens = tokenize(&exprs);
-        let exprs = parse(tokens);
-        for exp in exprs.into_iter() {
-            match evaluator::eval(exp, &global) {
-                Ok(evalulated) => {
-                    if let Expr::Proc(p) = evalulated {
-                        println!("{:?}", p.printable())
-                    } else {
-                        println!("{:?}", evalulated)
-                    }
+        if io::stdin().read_line(&mut exprs).is_ok() {
+            let tokens = match tokenize(&exprs) {
+                Ok(t) => t,
+                Err(err) => {
+                    eprintln!("{err}");
+                    continue;
                 }
-                Err(err) => eprintln!("{err}"),
+            };
+
+            let exprs = match parse(tokens) {
+                Ok(x) => x,
+                Err(err) => {
+                    eprintln!("{err}");
+                    continue;
+                }
+            };
+
+            for exp in exprs.into_iter() {
+                match evaluator::eval(exp, &global) {
+                    Ok(evalulated) => {
+                        if let Expr::Proc(p) = evalulated {
+                            println!("{:?}", p.printable())
+                        } else {
+                            println!("{:?}", evalulated)
+                        }
+                    }
+                    Err(err) => eprintln!("{err}"),
+                }
             }
+        } else {
+            eprint!("Error reading line");
+            continue;
         }
     }
 }

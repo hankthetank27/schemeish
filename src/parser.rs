@@ -1,5 +1,6 @@
 use std::iter::Peekable;
 
+use crate::error::ParseErr;
 use crate::lexer::Token;
 use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
@@ -13,31 +14,34 @@ pub enum Expr {
     EmptyList,
 }
 
-pub fn parse(tokens: Vec<Token>) -> Vec<Expr> {
+pub fn parse(tokens: Vec<Token>) -> Result<Vec<Expr>, ParseErr> {
     let mut tokens = tokens.into_iter().peekable();
     let mut exprs: Vec<Expr> = vec![];
 
-    while let Some(_) = tokens.peek() {
-        exprs.push(read_from_tokens(&mut tokens))
+    while tokens.peek().is_some() {
+        exprs.push(read_from_tokens(&mut tokens)?)
     }
 
-    exprs
+    Ok(exprs)
 }
 
-fn read_from_tokens<T: Iterator<Item = Token>>(tokens: &mut Peekable<T>) -> Expr {
+fn read_from_tokens<T>(tokens: &mut Peekable<T>) -> Result<Expr, ParseErr>
+where
+    T: Iterator<Item = Token>,
+{
     match tokens.peek() {
-        Some(Token::RParen) => panic!("Unexpected ')'"),
+        Some(Token::RParen) => Err(ParseErr::UnexpectedToken("unexpected )".to_string())),
         Some(Token::LParen) => {
             let mut exprs: Vec<Expr> = vec![];
             tokens.next();
             while tokens.peek() != Some(&Token::RParen) {
-                exprs.push(read_from_tokens(tokens))
+                exprs.push(read_from_tokens(tokens)?)
             }
             tokens.next();
-            Expr::List(exprs)
+            Ok(Expr::List(exprs))
         }
-        Some(_) => Expr::Atom(tokens.next().unwrap()),
-        None => panic!("Unexpected EOF"),
+        Some(_) => Ok(Expr::Atom(tokens.next().unwrap())),
+        None => Err(ParseErr::UnexpectedEnd),
     }
 }
 
@@ -61,27 +65,27 @@ mod test {
                 ]),
             ]),
         ];
-        assert_eq!(res, parse(tokenize(scm)));
+        assert_eq!(res, parse(tokenize(scm).unwrap()).unwrap());
     }
 
     #[test]
     #[should_panic]
     fn extra_paren() {
         let scm = "(+ 1 2) (1))";
-        parse(tokenize(scm));
+        parse(tokenize(scm).unwrap()).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn opening_rparen() {
         let scm = ")(yo)";
-        parse(tokenize(scm));
+        parse(tokenize(scm).unwrap()).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn no_close() {
         let scm = "(+ 1 (1)";
-        parse(tokenize(scm));
+        parse(tokenize(scm).unwrap()).unwrap();
     }
 }

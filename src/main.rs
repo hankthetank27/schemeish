@@ -19,7 +19,7 @@ fn main() {
     let mut args = env::args();
 
     let runtime = read(&mut args).unwrap_or_else(|err| {
-        eprint!("{err}");
+        eprintln!("{err}");
         process::exit(1);
     });
 
@@ -30,8 +30,16 @@ fn main() {
 }
 
 fn run_from_file(file: &str) {
-    let tokens = tokenize(&file);
-    let exprs = parse(tokens);
+    let tokens = tokenize(file).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+
+    let exprs = parse(tokens).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+
     let global = EnvRef::global();
     for exp in exprs.into_iter() {
         match evaluator::eval(exp, &global) {
@@ -75,8 +83,8 @@ mod test {
     use super::*;
 
     fn eval_test(scm: &str) -> Vec<Expr> {
-        let tokens = tokenize(scm);
-        let exprs = parse(tokens);
+        let tokens = tokenize(scm).unwrap();
+        let exprs = parse(tokens).unwrap();
         let global = EnvRef::global();
         exprs
             .into_iter()
@@ -85,8 +93,8 @@ mod test {
     }
 
     fn eval_err_test(scm: &str) -> Vec<Result<Expr, EvalErr>> {
-        let tokens = tokenize(scm);
-        let exprs = parse(tokens);
+        let tokens = tokenize(scm).unwrap();
+        let exprs = parse(tokens).unwrap();
         let global = EnvRef::global();
         exprs
             .into_iter()

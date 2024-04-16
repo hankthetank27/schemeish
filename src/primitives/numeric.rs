@@ -37,7 +37,7 @@ pub fn divide(args: Args) -> Result<Expr, EvalErr> {
 
 pub fn equality(args: Args) -> Result<Expr, EvalErr> {
     let nums: Vec<f64> = args.eval()?.into_nums()?;
-    match nums.get(0) {
+    match nums.first() {
         Some(first) => Ok(nums.iter().all(|num| num == first).to_expr()),
         None => Err(EvalErr::InvalidArgs(
             "Procedure requires at least one argument",

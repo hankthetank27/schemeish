@@ -33,6 +33,7 @@ pub type PSig = fn(Args) -> Result<Expr, EvalErr>;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Primitive(PSig);
 
+#[allow(clippy::new_ret_no_self)]
 impl Primitive {
     pub fn new(proc: PSig) -> Proc {
         Proc::Primitive(Primitive(proc))
@@ -50,6 +51,7 @@ pub struct Compound {
     env: EnvRef,
 }
 
+#[allow(clippy::new_ret_no_self)]
 impl Compound {
     pub fn new(body: Vec<Expr>, params: Vec<String>, env: EnvRef) -> Proc {
         Proc::Compound(Compound { body, params, env })
@@ -70,8 +72,7 @@ impl Compound {
 
         self.body
             .into_iter()
-            // the empty list?
-            .fold(Ok(Expr::List(vec![])), |_returned_expr, expr| {
+            .try_fold(Expr::EmptyList, |_returned_expr, expr| {
                 eval(expr, &new_env_ref)
             })
     }
