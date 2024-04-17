@@ -10,22 +10,22 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
         // variable lookup
         Expr::Atom(Token::Symbol(ref identifier)) => env.get_val(identifier),
         // self evaluating
-        x @ Expr::Atom(_) | x @ Expr::Proc(_) | x @ Expr::EmptyList | x @ Expr::Dotted(_) => Ok(x),
+        x @ Expr::Atom(_) | x @ Expr::Proc(_) | x @ Expr::Dotted(_) | x @ Expr::EmptyList => Ok(x),
         // procedure
         Expr::List(ls) => {
-            let (operation, args) = ls.into_iter().get_one_and_rest()?;
+            let (op, args) = ls.into_iter().get_one_and_rest()?;
             let args = Args::new(args.collect(), env);
-            match operation {
-                Expr::Atom(Token::Symbol(_)) => apply(operation, args),
-                Expr::List(_) => apply(operation, args),
-                operation => Err(EvalErr::TypeError(("symbol or list", operation))),
+            match op {
+                Expr::Atom(Token::Symbol(_)) => apply(op, args),
+                Expr::List(_) => apply(op, args),
+                op => Err(EvalErr::TypeError(("symbol or list", op))),
             }
         }
     }
 }
 
-pub fn apply(operation: Expr, args: Args) -> Result<Expr, EvalErr> {
-    match eval(operation, &args.env())? {
+pub fn apply(op: Expr, args: Args) -> Result<Expr, EvalErr> {
+    match eval(op, &args.env())? {
         Expr::Proc(proc) => match proc {
             Proc::Primitive(proc) => proc.call(args),
             Proc::Compound(proc) => proc.call(args.eval()?),

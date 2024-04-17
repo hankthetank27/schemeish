@@ -28,7 +28,7 @@ pub fn define(args: Args) -> Result<Expr, EvalErr> {
             let proc = Compound::new(proc_body, proc_args, env.clone_rc()).to_expr();
             env.insert_val(proc_name.to_string(), proc)
         }
-        identifier => Err(EvalErr::TypeError(("symbol or list", identifier))), //panic!("Failed to define {:?}", identifier),
+        identifier => Err(EvalErr::TypeError(("symbol or list", identifier))),
     }
 }
 
@@ -42,7 +42,7 @@ pub fn lambda(args: Args) -> Result<Expr, EvalErr> {
 
             Ok(Compound::new(proc_body, proc_args, env.clone_rc()).to_expr())
         }
-        first_expr => Err(EvalErr::TypeError(("list", first_expr))), //panic!("Failed to define {:?}", identifier),
+        first_expr => Err(EvalErr::TypeError(("list", first_expr))),
     }
 }
 
@@ -53,6 +53,6 @@ pub fn if_statement(args: Args) -> Result<Expr, EvalErr> {
     match eval(predicate, &env)? {
         Expr::Atom(Token::Boolean(true)) => eval(consequence, &env),
         Expr::Atom(Token::Boolean(false)) => eval(alternative, &env),
-        pred => Err(EvalErr::TypeError(("bool", pred))), //panic!("Failed to define {:?}", identifier),
+        pred => Err(EvalErr::TypeError(("bool", pred))),
     }
 }

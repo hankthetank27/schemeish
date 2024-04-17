@@ -89,9 +89,9 @@ fn install_primitives(env: EnvRef) -> EnvRef {
         ("cons", pair::cons as PSig),
         ("car", pair::car as PSig),
         ("cdr", pair::cdr as PSig),
-        ("nil", pair::nil as PSig),
+        ("list", pair::list as PSig),
         ("null?", pair::null_check as PSig),
-        // ("list", list::list as PSig),
+        ("pair?", pair::pair_check as PSig),
     ];
 
     for (name, proc) in primitives.into_iter() {

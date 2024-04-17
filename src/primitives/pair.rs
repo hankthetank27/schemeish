@@ -1,6 +1,9 @@
 // use core::cell::RefCell;
 // use std::rc::Rc;
 
+use core::iter::Peekable;
+use std::vec::IntoIter;
+
 use crate::error::EvalErr;
 use crate::evaluator::Args;
 use crate::parser::Expr;
@@ -51,7 +54,7 @@ pub fn car(args: Args) -> Result<Expr, EvalErr> {
     match expr {
         Expr::List(ls) => ls.into_iter().get_one().or_else(|_| Ok(Expr::EmptyList)),
         Expr::Dotted(p) => Ok(p.car()),
-        e @ Expr::EmptyList => Ok(e),
+        Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access car of empty list")),
         x => Err(EvalErr::TypeError(("list", x))),
     }
 }
@@ -67,27 +70,33 @@ pub fn cdr(args: Args) -> Result<Expr, EvalErr> {
             }
         }
         Expr::Dotted(p) => Ok(p.cdr()),
-        e @ Expr::EmptyList => Ok(e),
+        Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access cdr of empty list")),
         x => Err(EvalErr::TypeError(("list", x))),
     }
 }
 
-// pub fn list(args: Args) -> Result<Expr, EvalErr> {
-//     let (first, rest) = args.eval()?.into_iter().get_one_and_rest()?;
-//     rest.peekable().fold(first, |list, expr| cons);
-//     todo!()
-// }
-
-pub fn nil(args: Args) -> Result<Expr, EvalErr> {
-    match args.into_iter().peekable().peek() {
-        None => Ok(Expr::EmptyList),
-        Some(_) => Err(EvalErr::InvalidArgs("expected no arguments")),
+pub fn list(args: Args) -> Result<Expr, EvalErr> {
+    fn map_to_list(el: Expr, mut ls: Peekable<IntoIter<Expr>>) -> Expr {
+        let next = match ls.peek() {
+            Some(_) => map_to_list(ls.next().unwrap(), ls),
+            None => Expr::EmptyList,
+        };
+        Pair::new(el, next).to_expr()
     }
+    let (first, rest) = args.eval()?.into_iter().get_one_and_rest()?;
+    Ok(map_to_list(first, rest.peekable()))
 }
 
 pub fn null_check(args: Args) -> Result<Expr, EvalErr> {
     match args.eval()?.into_iter().get_one()? {
         Expr::EmptyList => Ok(true.to_expr()),
+        _ => Ok(false.to_expr()),
+    }
+}
+
+pub fn pair_check(args: Args) -> Result<Expr, EvalErr> {
+    match args.eval()?.into_iter().get_one()? {
+        Expr::Dotted(_) => Ok(true.to_expr()),
         _ => Ok(false.to_expr()),
     }
 }

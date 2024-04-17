@@ -11,6 +11,7 @@ pub enum Expr {
     Atom(Token),
     Proc(Proc),
     Dotted(Pair),
+    // Quoted(Box<Expr>),
     EmptyList,
 }
 
@@ -33,12 +34,17 @@ where
         Some(Token::RParen) => Err(ParseErr::UnexpectedToken("unexpected )".to_string())),
         Some(Token::LParen) => {
             let mut exprs: Vec<Expr> = vec![];
+
             tokens.next();
             while tokens.peek() != Some(&Token::RParen) {
                 exprs.push(read_from_tokens(tokens)?)
             }
             tokens.next();
-            Ok(Expr::List(exprs))
+
+            match exprs.len() {
+                0 => Ok(Expr::EmptyList),
+                _ => Ok(Expr::List(exprs)),
+            }
         }
         Some(_) => Ok(Expr::Atom(tokens.next().unwrap())),
         None => Err(ParseErr::UnexpectedEnd),

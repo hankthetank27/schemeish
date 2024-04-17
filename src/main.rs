@@ -130,9 +130,9 @@ mod test {
     }
 
     #[test]
-    fn curry() {
+    fn curry_and_comment() {
         let scm = "
-            (((lambda (x)
+            (((lambda (x) ;this has a comment
                 (lambda (y)
                   (+ x y)))
               3)
@@ -144,12 +144,15 @@ mod test {
     }
 
     #[test]
-    fn nested_proc() {
+    fn nested_proc_w_comments() {
         let scm = "
-            (define (add-with-ten x y)
+            ; comment much?
+            (define (add-with-ten x y) ; yoo
+                ; we got a comment here mate
               (define (add b c) (+ 10 b c))
-              (+ (add x x) (add y y))) 
-            (- (add-with-ten 1 1) 5 5)";
+              (+ (add x x) (add y y)));morestuff
+;commmentttimte!;haha
+            (- (add-with-ten 1 1) 5 5); also end w comment";
 
         let evalulated = eval_test(scm);
         let res = evalulated.get(1).unwrap().to_owned();
@@ -182,7 +185,7 @@ mod test {
               (if (null? (cdr list))
                   (car list)
                   (last-pair (cdr list))))
-            (define ls (cons 23 (cons 72 (cons 149 (nil)))))
+            (define ls (cons 23 (cons 72 (cons 149 ()))))
             (last-pair ls)";
 
         let evalulated = eval_test(scm);
@@ -195,11 +198,11 @@ mod test {
         let scm = "
             (define (map ls fn)
               (if (null? ls)
-                (nil)
+                ()
                 (cons (fn (car ls))
                       (map (cdr ls) fn))))
 
-            (define ls (cons 1 (cons 2 (cons 3 (nil)))))
+            (define ls (list 1 2 (+ 1 2)))
             (map ls (lambda (x) (* x 2)))";
 
         let evalulated = eval_test(scm);

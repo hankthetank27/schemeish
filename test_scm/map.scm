@@ -1,11 +1,11 @@
 (define (map ls fn)
-  (if (null? ls)
-    (nil)
+  (if (null? ls) 
+    () ; cooool!
     (cons (fn (car ls))
           (map (cdr ls) fn))))
 
-(define x (cons 1 (cons 2 (cons 3 (nil)))))
-(define y x)
-(define m1 (map  y (lambda (x) (* x 2))))
-(define m2 (map m1 (lambda (x) (* x 2))))
+(define l1 (list 1 2 3 4)) ;comment here!
+; we got comment
+(define l2 (cons 5 (cdr (cdr l1))))
+(define m1 (map l2 (lambda (x) (* x 2)))) ;end w a comment :)
 

@@ -28,7 +28,8 @@ where
     fn parse_bool(&mut self) -> TokenRes<Token>;
     fn parse_string(&mut self) -> TokenRes<Token>;
     fn parse_symbol(&mut self) -> TokenRes<Token>;
-    fn advance_to_token(&mut self) -> &Self;
+    fn purge_comment(&mut self) -> Option<&mut Self>;
+    fn advance_to_token(&mut self) -> Option<&mut Self>;
     fn take_until<F: Fn(&T::Item) -> bool>(&mut self, pred: F) -> IntoIter<T::Item>;
 }
 
@@ -37,7 +38,6 @@ where
     T: Iterator<Item = char>,
 {
     fn collect_tokens(&mut self, mut tokens: Vec<Token>) -> TokenRes<Vec<Token>> {
-        self.advance_to_token();
         match self.parse_token() {
             Some(token) => {
                 tokens.push(token?);
@@ -48,7 +48,7 @@ where
     }
 
     fn parse_token(&mut self) -> Option<TokenRes<Token>> {
-        match self.peek()? {
+        match self.advance_to_token()?.peek()? {
             '(' => {
                 self.next();
                 Some(Ok(Token::LParen))
@@ -91,17 +91,24 @@ where
 
     fn parse_symbol(&mut self) -> TokenRes<Token> {
         let value: String = self
-            .take_until(|c| !c.is_whitespace() && c != &')' && c != &'(')
+            .take_until(|c| !c.is_whitespace() && c != &')' && c != &'(' && c != &';')
             .collect();
 
         Ok(parse_number(&value).unwrap_or(Token::Symbol(value)))
     }
 
-    fn advance_to_token(&mut self) -> &Self {
-        match self.next_if(|c| c.is_whitespace()) {
+    fn advance_to_token(&mut self) -> Option<&mut Self> {
+        match self.purge_comment()?.next_if(|c| c.is_whitespace()) {
             Some(_) => self.advance_to_token(),
-            None => self,
+            None => Some(self),
         }
+    }
+
+    fn purge_comment(&mut self) -> Option<&mut Self> {
+        if self.peek()? == &';' {
+            self.take_until(|c| c != &'\n');
+        }
+        Some(self)
     }
 
     fn take_until<F>(&mut self, pred: F) -> IntoIter<T::Item>
