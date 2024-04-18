@@ -13,16 +13,19 @@ pub fn define(args: Args) -> Result<Expr, EvalErr> {
     match identifier {
         //bind var
         Expr::Atom(Token::Symbol(identifier)) => {
-            let value = args.next().expect("Expected value for variable");
+            let value = args
+                .next()
+                .ok_or(EvalErr::InvalidArgs("variable has no declared value"))?;
             let val_expr = eval(value, &env)?;
             env.insert_val(identifier.to_string(), val_expr)
         }
-
         //bind proc
         Expr::List(first_expr) => {
             let mut first_expr = first_expr.into_strings()?.into_iter();
-            let proc_name = first_expr.next().expect("Expected identifier for proc");
-            let proc_args = first_expr.collect::<Vec<String>>();
+            let proc_name = first_expr
+                .next()
+                .ok_or(EvalErr::InvalidArgs("expected identifier for procedure"))?;
+            let proc_args = first_expr.collect();
             let proc_body = args.collect();
 
             let proc = Compound::new(proc_body, proc_args, env.clone_rc()).to_expr();
@@ -41,6 +44,10 @@ pub fn lambda(args: Args) -> Result<Expr, EvalErr> {
             let proc_body = args.collect();
 
             Ok(Compound::new(proc_body, proc_args, env.clone_rc()).to_expr())
+        }
+        Expr::EmptyList => {
+            let proc_body = args.collect();
+            Ok(Compound::new(proc_body, vec![], env.clone_rc()).to_expr())
         }
         first_expr => Err(EvalErr::TypeError(("list", first_expr))),
     }

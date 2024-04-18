@@ -28,7 +28,8 @@ where
     fn parse_bool(&mut self) -> TokenRes<Token>;
     fn parse_string(&mut self) -> TokenRes<Token>;
     fn parse_symbol(&mut self) -> TokenRes<Token>;
-    fn purge_comment(&mut self) -> Option<&mut Self>;
+    fn parse_number(&mut self) -> TokenRes<Token>;
+    fn consume_comment(&mut self) -> Option<&mut Self>;
     fn advance_to_token(&mut self) -> Option<&mut Self>;
     fn take_until<F: Fn(&T::Item) -> bool>(&mut self, pred: F) -> IntoIter<T::Item>;
 }
@@ -38,13 +39,10 @@ where
     T: Iterator<Item = char>,
 {
     fn collect_tokens(&mut self, mut tokens: Vec<Token>) -> TokenRes<Vec<Token>> {
-        match self.parse_token() {
-            Some(token) => {
-                tokens.push(token?);
-                self.collect_tokens(tokens)
-            }
-            None => Ok(tokens),
+        while let Some(token) = self.parse_token() {
+            tokens.push(token?)
         }
+        Ok(tokens)
     }
 
     fn parse_token(&mut self) -> Option<TokenRes<Token>> {
@@ -65,6 +63,7 @@ where
                 self.next();
                 Some(self.parse_string())
             }
+            c if c.is_numeric() => Some(self.parse_number()),
             _ => Some(self.parse_symbol()),
         }
     }
@@ -91,20 +90,40 @@ where
 
     fn parse_symbol(&mut self) -> TokenRes<Token> {
         let value: String = self
-            .take_until(|c| !c.is_whitespace() && c != &')' && c != &'(' && c != &';')
+            .take_until(|c| !c.is_numeric() && !end_of_token(c))
             .collect();
-
-        Ok(parse_number(&value).unwrap_or(Token::Symbol(value)))
-    }
-
-    fn advance_to_token(&mut self) -> Option<&mut Self> {
-        match self.purge_comment()?.next_if(|c| c.is_whitespace()) {
-            Some(_) => self.advance_to_token(),
-            None => Some(self),
+        match self.peek() {
+            Some(c) if c.is_numeric() => Err(ParseErr::MalformedToken(
+                "symbol cannot contain numeric values",
+            )),
+            _ => Ok(Token::Symbol(value)),
         }
     }
 
-    fn purge_comment(&mut self) -> Option<&mut Self> {
+    fn parse_number(&mut self) -> TokenRes<Token> {
+        let err = ParseErr::MalformedToken("failed to parse number");
+        let value: String = self
+            .take_until(|c| c.is_numeric() && !end_of_token(c))
+            .collect();
+        match self.peek() {
+            Some(c) if !c.is_numeric() && !end_of_token(c) => Err(err),
+            _ => Ok(Token::Number(value.parse().map_err(|_| err)?)),
+        }
+    }
+
+    fn advance_to_token(&mut self) -> Option<&mut Self> {
+        while self
+            .consume_comment()?
+            .peek()
+            .map_or(false, |c| c.is_whitespace())
+        {
+            self.next();
+        }
+
+        Some(self)
+    }
+
+    fn consume_comment(&mut self) -> Option<&mut Self> {
         if self.peek()? == &';' {
             self.take_until(|c| c != &'\n');
         }
@@ -125,12 +144,8 @@ where
     }
 }
 
-fn parse_number(val: &str) -> Option<Token> {
-    if let Ok(num) = val.parse::<f64>() {
-        Some(Token::Number(num))
-    } else {
-        None
-    }
+fn end_of_token(c: &char) -> bool {
+    c.is_whitespace() || c == &')' || c == &'(' || c == &';'
 }
 
 #[cfg(test)]
@@ -182,6 +197,20 @@ mod test {
     #[should_panic]
     fn tokenise_unclosed_string() {
         let scm = format!(r##" "sup"##);
+        tokenize(&scm).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn parse_num_failure() {
+        let scm = "55d";
+        tokenize(&scm).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn parse_symbol_failure() {
+        let scm = "proc5";
         tokenize(&scm).unwrap();
     }
 

@@ -58,13 +58,17 @@ impl Compound {
     }
 
     pub fn call(self, args: Vec<Expr>) -> Result<Expr, EvalErr> {
+        if self.params.len() != args.len() {
+            return Err(EvalErr::InvalidArgs(
+                "amount of args does not match function pararms",
+            ));
+        }
+
         let mut args = args.into_iter();
         let mut new_env = Env::new(self.env.clone_rc());
 
         for param in self.params.iter() {
-            let arg = args
-                .next()
-                .expect("Amount of args does not match function pararms");
+            let arg = args.next().unwrap();
             new_env.insert_val(param.to_string(), arg.clone());
         }
 
