@@ -5,9 +5,9 @@ use std::process;
 
 use schemeish::enviroment::EnvRef;
 use schemeish::evaluator;
-use schemeish::lexer::tokenize;
-use schemeish::parser::parse;
+use schemeish::lexer::TokenStream;
 use schemeish::parser::Expr;
+use schemeish::parser::Parser;
 use schemeish::repl;
 
 enum Runtime {
@@ -30,15 +30,12 @@ fn main() {
 }
 
 fn run_from_file(file: &str) {
-    let tokens = tokenize(file).unwrap_or_else(|err| {
-        eprintln!("{err}");
-        process::exit(1);
-    });
-
-    let exprs = parse(tokens).unwrap_or_else(|err| {
-        eprintln!("{err}");
-        process::exit(1);
-    });
+    let exprs = Parser::new(TokenStream::new(file))
+        .parse()
+        .unwrap_or_else(|err| {
+            eprintln!("{err}");
+            process::exit(1);
+        });
 
     let global = EnvRef::global();
     for exp in exprs.into_iter() {
@@ -83,8 +80,7 @@ mod test {
     use super::*;
 
     fn eval_test(scm: &str) -> Vec<Expr> {
-        let tokens = tokenize(scm).unwrap();
-        let exprs = parse(tokens).unwrap();
+        let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
         let global = EnvRef::global();
         exprs
             .into_iter()
@@ -93,8 +89,7 @@ mod test {
     }
 
     fn eval_err_test(scm: &str) -> Vec<Result<Expr, EvalErr>> {
-        let tokens = tokenize(scm).unwrap();
-        let exprs = parse(tokens).unwrap();
+        let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
         let global = EnvRef::global();
         exprs
             .into_iter()

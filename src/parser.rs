@@ -1,7 +1,7 @@
 use std::iter::Peekable;
 
 use crate::error::ParseErr;
-use crate::lexer::Token;
+use crate::lexer::{Token, TokenStream};
 use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
 
@@ -15,46 +15,59 @@ pub enum Expr {
     EmptyList,
 }
 
-pub fn parse(tokens: Vec<Token>) -> Result<Vec<Expr>, ParseErr> {
-    let mut tokens = tokens.into_iter().peekable();
-    let mut exprs: Vec<Expr> = vec![];
-
-    while tokens.peek().is_some() {
-        exprs.push(read_from_tokens(&mut tokens)?)
-    }
-
-    Ok(exprs)
+pub struct Parser<'a> {
+    tokens: Peekable<TokenStream<'a>>,
+    exprs: Vec<Expr>,
 }
 
-fn read_from_tokens<T>(tokens: &mut Peekable<T>) -> Result<Expr, ParseErr>
-where
-    T: Iterator<Item = Token>,
-{
-    match tokens.peek() {
-        Some(Token::RParen) => Err(ParseErr::UnexpectedToken("unexpected )".to_string())),
-        Some(Token::LParen) => {
-            let mut exprs: Vec<Expr> = vec![];
-
-            tokens.next();
-            while tokens.peek() != Some(&Token::RParen) {
-                exprs.push(read_from_tokens(tokens)?)
-            }
-            tokens.next();
-
-            match exprs.len() {
-                0 => Ok(Expr::EmptyList),
-                _ => Ok(Expr::List(exprs)),
-            }
+impl<'a> Parser<'a> {
+    pub fn new(tokens: TokenStream<'a>) -> Self {
+        Parser {
+            tokens: tokens.peekable(),
+            exprs: vec![],
         }
-        Some(_) => Ok(Expr::Atom(tokens.next().unwrap())),
-        None => Err(ParseErr::UnexpectedEnd),
+    }
+
+    pub fn parse(mut self) -> Result<Vec<Expr>, ParseErr> {
+        while self.tokens.peek().is_some() {
+            let next = self.read_from_tokens()?;
+            self.exprs.push(next)
+        }
+        Ok(self.exprs)
+    }
+
+    fn read_from_tokens(&mut self) -> Result<Expr, ParseErr> {
+        if let Some(token) = self.tokens.next() {
+            match token? {
+                Token::LParen => {
+                    let mut exprs: Vec<Expr> = vec![];
+
+                    while let Some(t) = self.tokens.peek() {
+                        if let Ok(Token::RParen) = t {
+                            self.tokens.next();
+                            match exprs.len() {
+                                0 => return Ok(Expr::EmptyList),
+                                _ => return Ok(Expr::List(exprs)),
+                            }
+                        } else {
+                            exprs.push(self.read_from_tokens()?)
+                        }
+                    }
+
+                    Err(ParseErr::UnexpectedEnd)
+                }
+                Token::RParen => Err(ParseErr::UnexpectedToken("unexpected )".to_string())),
+                t => Ok(Expr::Atom(t)),
+            }
+        } else {
+            Err(ParseErr::UnexpectedEnd)
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::lexer::tokenize;
 
     #[test]
     fn valid_parse() {
@@ -71,27 +84,28 @@ mod test {
                 ]),
             ]),
         ];
-        assert_eq!(res, parse(tokenize(scm).unwrap()).unwrap());
+        let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
+        assert_eq!(res, exprs);
     }
 
     #[test]
     #[should_panic]
     fn extra_paren() {
         let scm = "(+ 1 2) (1))";
-        parse(tokenize(scm).unwrap()).unwrap();
+        Parser::new(TokenStream::new(scm)).parse().unwrap();
     }
 
     #[test]
     #[should_panic]
     fn opening_rparen() {
         let scm = ")(yo)";
-        parse(tokenize(scm).unwrap()).unwrap();
+        Parser::new(TokenStream::new(scm)).parse().unwrap();
     }
 
     #[test]
     #[should_panic]
     fn no_close() {
         let scm = "(+ 1 (1)";
-        parse(tokenize(scm).unwrap()).unwrap();
+        Parser::new(TokenStream::new(scm)).parse().unwrap();
     }
 }

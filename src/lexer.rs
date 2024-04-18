@@ -1,3 +1,4 @@
+use core::str::Chars;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -13,54 +14,31 @@ pub enum Token {
     Str(String),
 }
 
-pub fn tokenize(input: &str) -> TokenRes<Vec<Token>> {
-    input.chars().peekable().collect_tokens(vec![])
-}
+pub type TokenRes<T> = Result<T, ParseErr>;
 
-type TokenRes<T> = Result<T, ParseErr>;
+pub struct TokenStream<'a>(Peekable<Chars<'a>>);
 
-trait TokenIterator<T>
-where
-    T: Iterator<Item = char>,
-{
-    fn collect_tokens(&mut self, tokens: Vec<Token>) -> TokenRes<Vec<Token>>;
-    fn parse_token(&mut self) -> Option<TokenRes<Token>>;
-    fn parse_bool(&mut self) -> TokenRes<Token>;
-    fn parse_string(&mut self) -> TokenRes<Token>;
-    fn parse_symbol(&mut self) -> TokenRes<Token>;
-    fn parse_number(&mut self) -> TokenRes<Token>;
-    fn consume_comment(&mut self) -> Option<&mut Self>;
-    fn advance_to_token(&mut self) -> Option<&mut Self>;
-    fn take_until<F: Fn(&T::Item) -> bool>(&mut self, pred: F) -> IntoIter<T::Item>;
-}
-
-impl<T> TokenIterator<T> for Peekable<T>
-where
-    T: Iterator<Item = char>,
-{
-    fn collect_tokens(&mut self, mut tokens: Vec<Token>) -> TokenRes<Vec<Token>> {
-        while let Some(token) = self.parse_token() {
-            tokens.push(token?)
-        }
-        Ok(tokens)
+impl<'a> TokenStream<'a> {
+    pub fn new(input: &'a str) -> Self {
+        TokenStream(input.chars().peekable())
     }
 
     fn parse_token(&mut self) -> Option<TokenRes<Token>> {
         match self.advance_to_token()?.peek()? {
             '(' => {
-                self.next();
+                self.0.next();
                 Some(Ok(Token::LParen))
             }
             ')' => {
-                self.next();
+                self.0.next();
                 Some(Ok(Token::RParen))
             }
             '#' => {
-                self.next();
+                self.0.next();
                 Some(self.parse_bool())
             }
             '"' => {
-                self.next();
+                self.0.next();
                 Some(self.parse_string())
             }
             c if c.is_numeric() => Some(self.parse_number()),
@@ -69,7 +47,7 @@ where
     }
 
     fn parse_bool(&mut self) -> TokenRes<Token> {
-        match self.next() {
+        match self.0.next() {
             Some('t') => Ok(Token::Boolean(true)),
             Some('f') => Ok(Token::Boolean(false)),
             Some(c) => Err(ParseErr::UnexpectedToken(
@@ -83,7 +61,8 @@ where
 
     fn parse_string(&mut self) -> TokenRes<Token> {
         let value: String = self.take_until(|c| c != &'"').collect();
-        self.next()
+        self.0
+            .next()
             .ok_or(ParseErr::MalformedToken("unclosed string"))?; //consume remaining quote
         Ok(Token::Str(value))
     }
@@ -92,7 +71,7 @@ where
         let value: String = self
             .take_until(|c| !c.is_numeric() && !end_of_token(c))
             .collect();
-        match self.peek() {
+        match self.0.peek() {
             Some(c) if c.is_numeric() => Err(ParseErr::MalformedToken(
                 "symbol cannot contain numeric values",
             )),
@@ -105,42 +84,50 @@ where
         let value: String = self
             .take_until(|c| c.is_numeric() && !end_of_token(c))
             .collect();
-        match self.peek() {
+        match self.0.peek() {
             Some(c) if !c.is_numeric() && !end_of_token(c) => Err(err),
             _ => Ok(Token::Number(value.parse().map_err(|_| err)?)),
         }
     }
 
-    fn advance_to_token(&mut self) -> Option<&mut Self> {
+    fn advance_to_token(&mut self) -> Option<&mut Peekable<Chars<'a>>> {
         while self
             .consume_comment()?
             .peek()
             .map_or(false, |c| c.is_whitespace())
         {
-            self.next();
+            self.0.next();
         }
 
-        Some(self)
+        Some(&mut self.0)
     }
 
-    fn consume_comment(&mut self) -> Option<&mut Self> {
-        if self.peek()? == &';' {
+    fn consume_comment(&mut self) -> Option<&mut Peekable<Chars<'a>>> {
+        if self.0.peek()? == &';' {
             self.take_until(|c| c != &'\n');
         }
-        Some(self)
+        Some(&mut self.0)
     }
 
-    fn take_until<F>(&mut self, pred: F) -> IntoIter<T::Item>
+    fn take_until<F>(&mut self, pred: F) -> IntoIter<char>
     where
-        F: Fn(&T::Item) -> bool,
+        F: Fn(&char) -> bool,
     {
         let mut new = vec![];
 
-        while self.peek().map_or(false, &pred) {
-            new.push(self.next().unwrap())
+        while self.0.peek().map_or(false, &pred) {
+            new.push(self.0.next().unwrap())
         }
 
         new.into_iter()
+    }
+}
+
+impl<'a> Iterator for TokenStream<'a> {
+    type Item = TokenRes<Token>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.parse_token()
     }
 }
 
@@ -151,6 +138,10 @@ fn end_of_token(c: &char) -> bool {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    fn tokenize(input: &str) -> TokenRes<Vec<Token>> {
+        TokenStream::new(input).collect()
+    }
 
     #[test]
     fn tokenize_string() {
