@@ -1,9 +1,11 @@
 use std::iter::Peekable;
 
-use crate::error::ParseErr;
+use crate::error::EvalErr;
 use crate::lexer::{Token, TokenStream};
 use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
+use crate::special_form::{Define, If, Lambda};
+use crate::utils::{GetVals, ToExpr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -11,56 +13,98 @@ pub enum Expr {
     Atom(Token),
     Proc(Proc),
     Dotted(Pair),
-    // Quoted(Box<Expr>),
+    Define(Box<Define>),
+    Lambda(Box<Lambda>),
+    If(Box<If>),
     EmptyList,
+    // Quoted(Box<Expr>),
 }
 
 pub struct Parser<'a> {
     tokens: Peekable<TokenStream<'a>>,
-    exprs: Vec<Expr>,
+    parsed_exprs: Vec<Expr>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: TokenStream<'a>) -> Self {
         Parser {
             tokens: tokens.peekable(),
-            exprs: vec![],
+            parsed_exprs: vec![],
         }
     }
 
-    pub fn parse(mut self) -> Result<Vec<Expr>, ParseErr> {
+    pub fn parse(mut self) -> Result<Vec<Expr>, EvalErr> {
         while self.tokens.peek().is_some() {
-            let next = self.read_from_tokens()?;
-            self.exprs.push(next)
+            let expr = self.read_from_tokens()?;
+            self.parsed_exprs.push(expr)
         }
-        Ok(self.exprs)
+        Ok(self.parsed_exprs)
     }
 
-    fn read_from_tokens(&mut self) -> Result<Expr, ParseErr> {
+    fn read_from_tokens(&mut self) -> Result<Expr, EvalErr> {
         if let Some(token) = self.tokens.next() {
             match token? {
                 Token::LParen => {
-                    let mut exprs: Vec<Expr> = vec![];
-
-                    while let Some(t) = self.tokens.peek() {
-                        if let Ok(Token::RParen) = t {
-                            self.tokens.next();
-                            match exprs.len() {
-                                0 => return Ok(Expr::EmptyList),
-                                _ => return Ok(Expr::List(exprs)),
-                            }
-                        } else {
-                            exprs.push(self.read_from_tokens()?)
-                        }
-                    }
-
-                    Err(ParseErr::UnexpectedEnd)
+                    let res = self.parse_out_list()?;
+                    self.tokens.next(); // consume remaining paren
+                    Ok(res)
                 }
-                Token::RParen => Err(ParseErr::UnexpectedToken("unexpected )".to_string())),
-                t => Ok(Expr::Atom(t)),
+                Token::If => self.parse_if(),
+                Token::Lambda => self.parse_lambda(),
+                Token::Define => self.parse_define(),
+                x @ Token::Number(_)
+                | x @ Token::Str(_)
+                | x @ Token::Boolean(_)
+                | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
+                Token::RParen => Err(EvalErr::UnexpectedToken("unexpected )".to_string())),
             }
         } else {
-            Err(ParseErr::UnexpectedEnd)
+            Err(EvalErr::UnexpectedEnd)
+        }
+    }
+
+    fn parse_out_list(&mut self) -> Result<Expr, EvalErr> {
+        let mut parsed_exprs: Vec<Expr> = vec![];
+        while let Some(t) = self.tokens.peek() {
+            if let Ok(Token::RParen) = t {
+                match parsed_exprs.len() {
+                    0 => return Ok(Expr::EmptyList),
+                    _ => return Ok(Expr::List(parsed_exprs)),
+                }
+            } else {
+                parsed_exprs.push(self.read_from_tokens()?)
+            }
+        }
+        Err(EvalErr::UnexpectedEnd)
+    }
+
+    fn parse_if(&mut self) -> Result<Expr, EvalErr> {
+        match self.parse_out_list()? {
+            Expr::List(rest) => {
+                let (p, c, a) = rest.into_iter().get_three()?;
+                Ok(If::new(p, c, a).to_expr())
+            }
+            _ => Err(EvalErr::UnexpectedToken("expected list".to_string())),
+        }
+    }
+
+    fn parse_lambda(&mut self) -> Result<Expr, EvalErr> {
+        match self.parse_out_list()? {
+            Expr::List(rest) => {
+                let (first, rest) = rest.into_iter().get_one_and_rest()?;
+                Ok(Lambda::new(first, rest.collect()).to_expr())
+            }
+            _ => Err(EvalErr::UnexpectedToken("expected list".to_string())),
+        }
+    }
+
+    fn parse_define(&mut self) -> Result<Expr, EvalErr> {
+        match self.parse_out_list()? {
+            Expr::List(rest) => {
+                let (first, rest) = rest.into_iter().get_one_and_rest()?;
+                Ok(Define::new(first, rest.collect()).to_expr())
+            }
+            _ => Err(EvalErr::UnexpectedToken("expected list".to_string())),
         }
     }
 }

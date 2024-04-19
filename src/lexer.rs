@@ -2,19 +2,22 @@ use core::str::Chars;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
-use crate::error::ParseErr;
+use crate::error::EvalErr;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     LParen,
     RParen,
     Number(f64),
-    Symbol(String),
     Boolean(bool),
     Str(String),
+    If,
+    Define,
+    Lambda,
+    Symbol(String),
 }
 
-pub type TokenRes<T> = Result<T, ParseErr>;
+pub type TokenRes<T> = Result<T, EvalErr>;
 
 pub struct TokenStream<'a>(Peekable<Chars<'a>>);
 
@@ -50,10 +53,10 @@ impl<'a> TokenStream<'a> {
         match self.0.next() {
             Some('t') => Ok(Token::Boolean(true)),
             Some('f') => Ok(Token::Boolean(false)),
-            Some(c) => Err(ParseErr::UnexpectedToken(
+            Some(c) => Err(EvalErr::UnexpectedToken(
                 format!("expected #t or #f, got #{}", c).to_string(),
             )),
-            None => Err(ParseErr::MalformedToken(
+            None => Err(EvalErr::MalformedToken(
                 "expected charater indicating bool type",
             )),
         }
@@ -62,8 +65,8 @@ impl<'a> TokenStream<'a> {
     fn parse_string(&mut self) -> TokenRes<Token> {
         let value: String = self.take_until(|c| c != &'"').collect();
         self.0
-            .next()
-            .ok_or(ParseErr::MalformedToken("unclosed string"))?; //consume remaining quote
+            .next() //consume remaining quote
+            .ok_or(EvalErr::MalformedToken("unclosed string"))?;
         Ok(Token::Str(value))
     }
 
@@ -72,15 +75,20 @@ impl<'a> TokenStream<'a> {
             .take_until(|c| !c.is_numeric() && !end_of_token(c))
             .collect();
         match self.0.peek() {
-            Some(c) if c.is_numeric() => Err(ParseErr::MalformedToken(
+            Some(c) if c.is_numeric() => Err(EvalErr::MalformedToken(
                 "symbol cannot contain numeric values",
             )),
-            _ => Ok(Token::Symbol(value)),
+            _ => Ok(match value.as_str() {
+                "if" => Token::If,
+                "define" => Token::Define,
+                "lambda" => Token::Lambda,
+                _ => Token::Symbol(value),
+            }),
         }
     }
 
     fn parse_number(&mut self) -> TokenRes<Token> {
-        let err = ParseErr::MalformedToken("failed to parse number");
+        let err = EvalErr::MalformedToken("failed to parse number");
         let value: String = self
             .take_until(|c| c.is_numeric() && !end_of_token(c))
             .collect();
@@ -185,6 +193,22 @@ mod test {
     }
 
     #[test]
+    fn tokenise_number() {
+        let scm = " 123";
+        let res: Vec<Token> = vec![Token::Number(123.0)];
+        let tokens = tokenize(&scm).unwrap();
+        assert_eq!(tokens, res);
+    }
+
+    #[test]
+    fn tokenise_parse_fail() {
+        let scm = " 123)";
+        let res: Vec<Token> = vec![Token::Number(123.0), Token::RParen];
+        let tokens = tokenize(&scm).unwrap();
+        assert_eq!(tokens, res);
+    }
+
+    #[test]
     #[should_panic]
     fn tokenise_unclosed_string() {
         let scm = format!(r##" "sup"##);
@@ -194,14 +218,14 @@ mod test {
     #[test]
     #[should_panic]
     fn parse_num_failure() {
-        let scm = "55d";
+        let scm = "5d";
         tokenize(&scm).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn parse_symbol_failure() {
-        let scm = "proc5";
+        let scm = "pr0c";
         tokenize(&scm).unwrap();
     }
 

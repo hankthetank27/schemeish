@@ -4,8 +4,9 @@ use std::rc::Rc;
 
 use crate::error::EvalErr;
 use crate::parser::Expr;
-use crate::primitives::{numeric, pair, special_form, utils::ToExpr};
+use crate::primitives::{numeric, pair};
 use crate::procedure::{PSig, Primitive};
+use crate::utils::ToExpr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnvRef(Rc<RefCell<Option<Env>>>);
@@ -67,16 +68,14 @@ impl Env {
     }
 
     pub fn insert_val(&mut self, name: String, val: Expr) -> Expr {
-        self.values.insert(name, val.clone());
+        //TODO address clone..
+        self.values.insert(name.clone(), val.clone());
         val
     }
 }
 
 fn install_primitives(env: EnvRef) -> EnvRef {
     let primitives = [
-        ("define", special_form::define as PSig),
-        ("lambda", special_form::lambda as PSig),
-        ("if", special_form::if_statement as PSig),
         ("+", numeric::add as PSig),
         ("-", numeric::subtract as PSig),
         ("*", numeric::multiply as PSig),

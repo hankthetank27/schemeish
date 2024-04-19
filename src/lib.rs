@@ -6,3 +6,5 @@ pub mod parser;
 pub mod primitives;
 pub mod procedure;
 pub mod repl;
+pub mod special_form;
+pub mod utils;

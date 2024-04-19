@@ -4,7 +4,7 @@ use crate::{
     error::EvalErr,
     evaluator::Args,
     parser::Expr,
-    primitives::utils::{HasNext, IterInnerVal, ToExpr},
+    utils::{HasNext, IterInnerVal, ToExpr},
 };
 
 pub fn add(args: Args) -> Result<Expr, EvalErr> {

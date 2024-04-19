@@ -9,6 +9,9 @@ pub enum EvalErr {
     UnboundVar(String),
     InvalidArgs(&'static str),
     TypeError((&'static str, Expr)),
+    UnexpectedToken(String),
+    UnexpectedEnd,
+    MalformedToken(&'static str),
     NilEnv,
 }
 
@@ -22,26 +25,9 @@ impl fmt::Display for EvalErr {
             EvalErr::InvalidArgs(msg) => format!("invalid argument, {msg}"),
             EvalErr::TypeError((expected, got)) => format!("expected {expected}, got {:?}", got),
             EvalErr::NilEnv => "inserting value into empty enviroment".to_string(),
-        };
-        write!(f, "ERROR: {}", err_msg)
-    }
-}
-
-#[derive(Debug)]
-pub enum ParseErr {
-    UnexpectedToken(String),
-    UnexpectedEnd,
-    MalformedToken(&'static str),
-}
-
-impl Error for ParseErr {}
-
-impl fmt::Display for ParseErr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let err_msg = match self {
-            ParseErr::UnexpectedToken(msg) => msg.to_string(),
-            ParseErr::MalformedToken(msg) => msg.to_string(),
-            ParseErr::UnexpectedEnd => "unexpected end of expression".to_string(),
+            EvalErr::UnexpectedToken(msg) => msg.to_string(),
+            EvalErr::MalformedToken(msg) => msg.to_string(),
+            EvalErr::UnexpectedEnd => "unexpected end of expression".to_string(),
         };
         write!(f, "ERROR: {}", err_msg)
     }

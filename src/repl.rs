@@ -6,42 +6,52 @@ use crate::lexer::TokenStream;
 use crate::parser::Expr;
 use crate::parser::Parser;
 
-pub fn run() {
-    println!("Schemeish v0.0.1");
-    println!("Welcome :)");
+pub struct Repl {
+    global_env: EnvRef,
+}
 
-    let global = EnvRef::global();
+impl Repl {
+    pub fn new() -> Self {
+        Repl {
+            global_env: EnvRef::global(),
+        }
+    }
 
-    loop {
-        print!("> ");
-        io::stdout().flush().unwrap();
+    pub fn run(&self) {
+        println!("Schemeish v0.0.1");
+        println!("Welcome :)");
 
-        let mut exprs = String::new();
+        loop {
+            print!("> ");
+            io::stdout().flush().unwrap();
 
-        if io::stdin().read_line(&mut exprs).is_ok() {
-            let exprs = match Parser::new(TokenStream::new(&exprs)).parse() {
-                Ok(x) => x,
-                Err(err) => {
-                    eprintln!("{err}");
-                    continue;
-                }
-            };
+            let mut exprs = String::new();
 
-            for exp in exprs.into_iter() {
-                match evaluator::eval(exp, &global) {
-                    Ok(evalulated) => {
-                        if let Expr::Proc(p) = evalulated {
-                            println!("{:?}", p.printable())
-                        } else {
-                            println!("{:?}", evalulated)
-                        }
+            if io::stdin().read_line(&mut exprs).is_ok() {
+                let exprs = match Parser::new(TokenStream::new(&exprs)).parse() {
+                    Ok(x) => x,
+                    Err(err) => {
+                        eprintln!("{err}");
+                        continue;
                     }
-                    Err(err) => eprintln!("{err}"),
+                };
+
+                for exp in exprs.into_iter() {
+                    match evaluator::eval(exp, &self.global_env) {
+                        Ok(evalulated) => {
+                            if let Expr::Proc(p) = evalulated {
+                                println!("{:?}", p.printable())
+                            } else {
+                                println!("{:?}", evalulated)
+                            }
+                        }
+                        Err(err) => eprintln!("{err}"),
+                    }
                 }
+            } else {
+                eprint!("Error reading line");
+                continue;
             }
-        } else {
-            eprint!("Error reading line");
-            continue;
         }
     }
 }

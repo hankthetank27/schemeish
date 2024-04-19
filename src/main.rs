@@ -8,7 +8,7 @@ use schemeish::evaluator;
 use schemeish::lexer::TokenStream;
 use schemeish::parser::Expr;
 use schemeish::parser::Parser;
-use schemeish::repl;
+use schemeish::repl::Repl;
 
 enum Runtime {
     File(String),
@@ -25,7 +25,7 @@ fn main() {
 
     match runtime {
         Runtime::File(f) => run_from_file(&f),
-        Runtime::Repl => repl::run(),
+        Runtime::Repl => Repl::new().run(),
     }
 }
 
@@ -58,9 +58,8 @@ where
 {
     args.next();
 
-    let path = match args.next() {
-        Some(path) => path,
-        None => return Ok(Runtime::Repl),
+    let Some(path) = args.next() else {
+        return Ok(Runtime::Repl);
     };
 
     Ok(Runtime::File(fs::read_to_string(path)?))

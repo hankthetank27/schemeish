@@ -7,9 +7,7 @@ use std::vec::IntoIter;
 use crate::error::EvalErr;
 use crate::evaluator::Args;
 use crate::parser::Expr;
-use crate::primitives::utils::{GetVals, HasNext};
-
-use super::utils::ToExpr;
+use crate::utils::{GetVals, HasNext, ToExpr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pair {
@@ -43,9 +41,7 @@ pub fn cons(args: Args) -> Result<Expr, EvalErr> {
             ls.insert(0, first);
             Ok(ls.to_expr())
         }
-        x @ Expr::Dotted(_) | x @ Expr::Atom(_) | x @ Expr::Proc(_) | x @ Expr::EmptyList => {
-            Ok(Pair::new(first, x).to_expr())
-        }
+        x @ _ => Ok(Pair::new(first, x).to_expr()),
     }
 }
 
