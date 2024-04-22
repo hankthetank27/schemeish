@@ -214,6 +214,22 @@ mod test {
     }
 
     #[test]
+    fn reassign_var() {
+        let scm = "
+            (define x 2)
+            (define (new-scope depth) 
+                (if (= 0 depth) 
+                    (set! x 1) 
+                    (new-scope (- depth 1))))
+            (new-scope 5)
+            x";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(3).unwrap().to_owned();
+        assert_eq!(res, Atom(Number(1.0)));
+    }
+
+    #[test]
     fn type_error() {
         let scm = "(define 1 2)";
 
@@ -230,17 +246,25 @@ mod test {
             Ok(e) => panic!("Expected error, got {:?}", e),
         }
     }
-
     #[test]
-    fn reassign_var() {
+    fn reassign_unassigned() {
         let scm = "
-            (define x 2)
-            (set! x 1)
-            x ";
+            (define (new-scope) (set! x 1))
+            (new-scope)
+            x";
 
-        let evalulated = eval_test(scm);
+        let evalulated = eval_err_test(scm);
         let res = evalulated.get(2).unwrap().to_owned();
-        assert_eq!(res, Atom(Number(1.0)));
+        match res {
+            Err(e) => {
+                let x = match e {
+                    EvalErr::UnboundVar(_) => true,
+                    _ => false,
+                };
+                assert!(x)
+            }
+            Ok(e) => panic!("Expected error, got {:?}", e),
+        }
     }
 
     #[test]

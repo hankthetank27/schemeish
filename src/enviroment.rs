@@ -49,7 +49,7 @@ impl EnvRef {
         self.0
             .borrow_mut()
             .as_mut()
-            .ok_or(EvalErr::NilEnv)
+            .ok_or_else(|| EvalErr::UnboundVar(name.to_string()))
             .map(|env| env.update_val(name, val))?
     }
 }
@@ -86,9 +86,7 @@ impl Env {
                 *entry = val;
                 self.get_val(&name)
             }
-            None => Err(EvalErr::UnboundVar(
-                "cannot reassign unbound variable".to_string(),
-            )),
+            None => self.parent.update_val(name, val),
         }
     }
 }
