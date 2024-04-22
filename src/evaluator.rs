@@ -11,7 +11,9 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
         Expr::Atom(Token::Symbol(ref identifier)) => env.get_val(identifier),
         // procedure
         Expr::List(ls) => {
-            let (op, args) = ls.into_iter().get_one_and_rest()?;
+            let (op, args) = ls.into_iter().get_one_and_rest_or_else(|| {
+                EvalErr::InvalidArgs("expected at least 2 arguments")
+            })?;
             let args = Args::new(args.collect(), env);
             match op {
                 Expr::If(if_x) => if_x.eval(env),

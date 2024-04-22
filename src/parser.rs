@@ -13,9 +13,9 @@ pub enum Expr {
     Atom(Token),
     Proc(Proc),
     Dotted(Pair),
+    If(Box<If>),
     Define(Box<Define>),
     Lambda(Box<Lambda>),
-    If(Box<If>),
     EmptyList,
     // Quoted(Box<Expr>),
 }
@@ -35,31 +35,48 @@ impl<'a> Parser<'a> {
 
     pub fn parse(mut self) -> Result<Vec<Expr>, EvalErr> {
         while self.tokens.peek().is_some() {
-            let expr = self.read_from_tokens()?;
+            let expr = self.read_from_token()?;
             self.parsed_exprs.push(expr)
         }
         Ok(self.parsed_exprs)
     }
 
-    fn read_from_tokens(&mut self) -> Result<Expr, EvalErr> {
-        if let Some(token) = self.tokens.next() {
-            match token? {
-                Token::LParen => {
-                    let res = self.parse_out_list()?;
-                    self.tokens.next(); // consume remaining paren
-                    Ok(res)
-                }
-                Token::If => self.parse_if(),
-                Token::Lambda => self.parse_lambda(),
-                Token::Define => self.parse_define(),
-                x @ Token::Number(_)
-                | x @ Token::Str(_)
-                | x @ Token::Boolean(_)
-                | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
-                Token::RParen => Err(EvalErr::UnexpectedToken("unexpected )".to_string())),
+    fn read_from_token(&mut self) -> Result<Expr, EvalErr> {
+        match self.next_or_err(EvalErr::UnexpectedEnd)? {
+            Token::LParen => {
+                let res = self.parse_out_list()?;
+                self.tokens.next(); // consume remaining paren
+                Ok(res)
             }
-        } else {
-            Err(EvalErr::UnexpectedEnd)
+            Token::If => self.parse_if(),
+            Token::Lambda => self.parse_lambda(),
+            Token::Define => self.parse_define(),
+            x @ Token::Number(_)
+            | x @ Token::Str(_)
+            | x @ Token::Boolean(_)
+            | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
+            _ => Err(EvalErr::UnexpectedEnd),
+            // Token::LParen => match self.peek_or_err(EvalErr::UnexpectedEnd)? {
+            //     Token::If => {
+            //         self.tokens.next();
+            //         self.parse_if()
+            //     }
+            //     Token::Lambda => {
+            //         self.tokens.next();
+            //         self.parse_lambda()
+            //     }
+            //     Token::Define => {
+            //         self.tokens.next();
+            //         self.parse_define()
+            //     }
+            //     _ => self.parse_out_list(),
+            // },
+            // x @ Token::Number(_)
+            // | x @ Token::Str(_)
+            // | x @ Token::Boolean(_)
+            // | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
+            // Token::RParen => Err(EvalErr::UnexpectedToken(")".to_string())),
+            // _ => Err(EvalErr::UnexpectedEnd),
         }
     }
 
@@ -67,12 +84,13 @@ impl<'a> Parser<'a> {
         let mut parsed_exprs: Vec<Expr> = vec![];
         while let Some(t) = self.tokens.peek() {
             if let Ok(Token::RParen) = t {
+                // self.tokens.next();
                 match parsed_exprs.len() {
                     0 => return Ok(Expr::EmptyList),
                     _ => return Ok(Expr::List(parsed_exprs)),
                 }
             } else {
-                parsed_exprs.push(self.read_from_tokens()?)
+                parsed_exprs.push(self.read_from_token()?)
             }
         }
         Err(EvalErr::UnexpectedEnd)
@@ -81,31 +99,43 @@ impl<'a> Parser<'a> {
     fn parse_if(&mut self) -> Result<Expr, EvalErr> {
         match self.parse_out_list()? {
             Expr::List(rest) => {
-                let (p, c, a) = rest.into_iter().get_three()?;
+                let (p, c, a) = rest.into_iter().get_three_or_else(|| {
+                    EvalErr::InvalidArgs(
+                        "'if' expression. expected condition, predicate, and consequence",
+                    )
+                })?;
                 Ok(If::new(p, c, a).to_expr())
             }
-            _ => Err(EvalErr::UnexpectedToken("expected list".to_string())),
+            _ => Err(EvalErr::UnexpectedToken("if".to_string())),
         }
     }
 
     fn parse_lambda(&mut self) -> Result<Expr, EvalErr> {
         match self.parse_out_list()? {
             Expr::List(rest) => {
-                let (first, rest) = rest.into_iter().get_one_and_rest()?;
+                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(|| {
+                    EvalErr::InvalidArgs("'lambda' expression. expected parameters and body")
+                })?;
                 Ok(Lambda::new(first, rest.collect()).to_expr())
             }
-            _ => Err(EvalErr::UnexpectedToken("expected list".to_string())),
+            _ => Err(EvalErr::UnexpectedToken("lambda".to_string())),
         }
     }
 
     fn parse_define(&mut self) -> Result<Expr, EvalErr> {
         match self.parse_out_list()? {
             Expr::List(rest) => {
-                let (first, rest) = rest.into_iter().get_one_and_rest()?;
+                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(|| {
+                    EvalErr::InvalidArgs("'define' expression. expected identifier and value")
+                })?;
                 Ok(Define::new(first, rest.collect()).to_expr())
             }
-            _ => Err(EvalErr::UnexpectedToken("expected list".to_string())),
+            _ => Err(EvalErr::UnexpectedToken("define".to_string())),
         }
+    }
+
+    fn next_or_err(&mut self, err: EvalErr) -> Result<Token, EvalErr> {
+        self.tokens.next().map_or_else(|| Err(err), Ok)?
     }
 }
 

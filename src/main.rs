@@ -6,8 +6,8 @@ use std::process;
 use schemeish::enviroment::EnvRef;
 use schemeish::evaluator;
 use schemeish::lexer::TokenStream;
-use schemeish::parser::Expr;
 use schemeish::parser::Parser;
+use schemeish::print::Print;
 use schemeish::repl::Repl;
 
 enum Runtime {
@@ -41,11 +41,7 @@ fn run_from_file(file: &str) {
     for exp in exprs.into_iter() {
         match evaluator::eval(exp, &global) {
             Ok(evalulated) => {
-                if let Expr::Proc(p) = evalulated {
-                    println!("{:?}", p.printable())
-                } else {
-                    println!("{:?}", evalulated)
-                }
+                println!("{:?}", evalulated.print())
             }
             Err(err) => eprintln!("{err}"),
         }
@@ -72,6 +68,7 @@ mod test {
     use schemeish::{
         error::EvalErr,
         lexer::Token::Number,
+        parser::Expr,
         parser::Expr::{Atom, Dotted, EmptyList},
         primitives::pair::Pair,
     };

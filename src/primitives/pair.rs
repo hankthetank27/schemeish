@@ -7,7 +7,7 @@ use std::vec::IntoIter;
 use crate::error::EvalErr;
 use crate::evaluator::Args;
 use crate::parser::Expr;
-use crate::utils::{GetVals, HasNext, ToExpr};
+use crate::utils::{GetVals, SoftIter, ToExpr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pair {
@@ -35,7 +35,11 @@ impl Pair {
 }
 
 pub fn cons(args: Args) -> Result<Expr, EvalErr> {
-    let (first, second) = args.eval()?.into_iter().get_two()?;
+    let (first, second) = args
+        .eval()?
+        .into_iter()
+        .get_two_or_else(|| EvalErr::InvalidArgs("'cons'. expected two arguments."))?;
+
     match second {
         Expr::List(mut ls) => {
             ls.insert(0, first);
@@ -46,9 +50,17 @@ pub fn cons(args: Args) -> Result<Expr, EvalErr> {
 }
 
 pub fn car(args: Args) -> Result<Expr, EvalErr> {
-    let expr = args.eval()?.into_iter().get_one()?;
+    let expr = args
+        .eval()?
+        .into_iter()
+        .get_one_or_else(|| EvalErr::InvalidArgs("'car'. expected argument"))?;
+
     match expr {
-        Expr::List(ls) => ls.into_iter().get_one().or_else(|_| Ok(Expr::EmptyList)),
+        Expr::List(ls) => ls
+            .into_iter()
+            .get_one_or_else(|| EvalErr::MapAsRecoverable)
+            .or_else(|_| Ok(Expr::EmptyList)),
+
         Expr::Dotted(p) => Ok(p.car()),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access car of empty list")),
         x => Err(EvalErr::TypeError(("list", x))),
@@ -56,10 +68,17 @@ pub fn car(args: Args) -> Result<Expr, EvalErr> {
 }
 
 pub fn cdr(args: Args) -> Result<Expr, EvalErr> {
-    let expr = args.eval()?.into_iter().get_one()?;
+    let expr = args
+        .eval()?
+        .into_iter()
+        .get_one_or_else(|| EvalErr::InvalidArgs("'cdr'. expected argument"))?;
+
     match expr {
         Expr::List(ls) => {
-            let (_, rest) = ls.into_iter().get_one_and_rest()?;
+            let (_, rest) = ls.into_iter().get_one_and_rest_or_else(|| {
+                EvalErr::InvalidArgs("'cdr' on list. expected list")
+            })?;
+
             match rest.peekable().has_next() {
                 Some(ls) => Ok(ls.collect::<Vec<Expr>>().to_expr()),
                 None => Ok(Expr::EmptyList),
@@ -79,19 +98,30 @@ pub fn list(args: Args) -> Result<Expr, EvalErr> {
         };
         Pair::new(el, next).to_expr()
     }
-    let (first, rest) = args.eval()?.into_iter().get_one_and_rest()?;
+    let (first, rest) = args
+        .eval()?
+        .into_iter()
+        .get_one_and_rest_or_else(|| EvalErr::InvalidArgs("'list'. expected arguments"))?;
     Ok(map_to_list(first, rest.peekable()))
 }
 
 pub fn null_check(args: Args) -> Result<Expr, EvalErr> {
-    match args.eval()?.into_iter().get_one()? {
+    match args
+        .eval()?
+        .into_iter()
+        .get_one_or_else(|| EvalErr::InvalidArgs("'nil?'. expected argument"))?
+    {
         Expr::EmptyList => Ok(true.to_expr()),
         _ => Ok(false.to_expr()),
     }
 }
 
 pub fn pair_check(args: Args) -> Result<Expr, EvalErr> {
-    match args.eval()?.into_iter().get_one()? {
+    match args
+        .eval()?
+        .into_iter()
+        .get_one_or_else(|| EvalErr::InvalidArgs("'pair?'. expected argument"))?
+    {
         Expr::Dotted(_) => Ok(true.to_expr()),
         _ => Ok(false.to_expr()),
     }

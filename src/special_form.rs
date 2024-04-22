@@ -33,11 +33,15 @@ impl SpecialForm for Define {
                 let value = body
                     .next()
                     .ok_or(EvalErr::InvalidArgs("variable has no declared value"))?;
+
                 env.insert_val(identifier.to_string(), eval(value, env)?)
             }
             //bind proc
             Expr::List(args) => {
-                let (first, rest) = args.into_iter().get_one_and_rest()?;
+                let (first, rest) = args.into_iter().get_one_and_rest_or_else(|| {
+                    EvalErr::InvalidArgs("'define' procedure. expected parameters and body")
+                })?;
+
                 match first {
                     Expr::Atom(Token::Symbol(identifier)) => {
                         let lamba = Lambda::new(Expr::List(rest.collect()), body.collect());

@@ -68,8 +68,7 @@ impl Env {
     }
 
     pub fn insert_val(&mut self, name: String, val: Expr) -> Expr {
-        //TODO address clone..
-        self.values.insert(name.clone(), val.clone());
+        self.values.insert(name, val.clone());
         val
     }
 }

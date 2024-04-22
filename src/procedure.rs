@@ -11,23 +11,6 @@ pub enum Proc {
     Compound(Compound),
 }
 
-// we can probably make a printing module
-// #[derive(Debug)]
-// #[allow(dead_code)]
-// pub struct PrintProc {
-//     params: Vec<String>,
-//     body: Vec<Expr>,
-// }
-
-impl Proc {
-    pub fn printable(&self) -> &str {
-        match self {
-            Proc::Primitive(_) => "Def Primitive",
-            Proc::Compound(_) => "Def Compound",
-        }
-    }
-}
-
 pub type PSig = fn(Args) -> Result<Expr, EvalErr>;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,6 +24,10 @@ impl Primitive {
 
     pub fn call(self, args: Args) -> Result<Expr, EvalErr> {
         (self.0)(args)
+    }
+
+    pub fn inner(&self) -> PSig {
+        self.0
     }
 }
 
@@ -79,5 +66,9 @@ impl Compound {
             .try_fold(Expr::EmptyList, |_returned_expr, expr| {
                 eval(expr, &new_env_ref)
             })
+    }
+
+    pub fn params(self) -> Vec<String> {
+        self.params
     }
 }

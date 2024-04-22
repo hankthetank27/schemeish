@@ -6,10 +6,9 @@ use crate::lexer::Token;
 use crate::parser::Expr;
 use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
-
-use super::special_form::Define;
-use super::special_form::If;
-use super::special_form::Lambda;
+use crate::special_form::Define;
+use crate::special_form::If;
+use crate::special_form::Lambda;
 
 pub trait IterInnerVal {
     fn into_nums(self) -> Result<Vec<f64>, EvalErr>;
@@ -36,55 +35,65 @@ impl IterInnerVal for Vec<Expr> {
     }
 }
 
-pub trait HasNext<I: Iterator> {
+pub trait SoftIter<I: Iterator> {
     fn has_next(self) -> Option<Peekable<I>>;
+    fn take_until<F>(&mut self, pred: F) -> IntoIter<I::Item>
+    where
+        F: Fn(&I::Item) -> bool;
 }
 
-impl<I, T> HasNext<I> for Peekable<I>
-where
-    I: Iterator<Item = T>,
-{
+impl<I: Iterator> SoftIter<I> for Peekable<I> {
     fn has_next(mut self) -> Option<Peekable<I>> {
         self.peek().is_some().then_some(self)
     }
+
+    fn take_until<F>(&mut self, pred: F) -> IntoIter<I::Item>
+    where
+        F: Fn(&I::Item) -> bool,
+    {
+        let mut new = vec![];
+        while self.peek().map_or(false, &pred) {
+            new.push(self.next().unwrap())
+        }
+        new.into_iter()
+    }
 }
 
-pub trait GetVals {
-    type Err;
-
-    fn get_one(&mut self) -> Result<Expr, Self::Err>;
-    fn get_two(&mut self) -> Result<(Expr, Expr), Self::Err>;
-    fn get_three(&mut self) -> Result<(Expr, Expr, Expr), Self::Err>;
-    fn get_one_and_rest(self) -> Result<(Expr, IntoIter<Expr>), Self::Err>;
+pub trait GetVals<F>
+where
+    F: Fn() -> EvalErr,
+{
+    fn get_one_or_else(&mut self, err: F) -> Result<Expr, EvalErr>;
+    fn get_two_or_else(&mut self, err: F) -> Result<(Expr, Expr), EvalErr>;
+    fn get_three_or_else(&mut self, err: F) -> Result<(Expr, Expr, Expr), EvalErr>;
+    fn get_one_and_rest_or_else(self, err: F) -> Result<(Expr, IntoIter<Expr>), EvalErr>;
 }
 
 // this is not the right error message
-impl GetVals for IntoIter<Expr> {
-    type Err = EvalErr;
-
-    fn get_one(&mut self) -> Result<Expr, EvalErr> {
-        self.next()
-            .ok_or_else(|| EvalErr::InvalidArgs("not enough arguments"))
+// let err = || EvalErr::InvalidArgs("not enough arguments");
+impl<F> GetVals<F> for IntoIter<Expr>
+where
+    F: Fn() -> EvalErr,
+{
+    fn get_one_or_else(&mut self, err: F) -> Result<Expr, EvalErr> {
+        self.next().ok_or_else(err)
     }
 
-    fn get_two(&mut self) -> Result<(Expr, Expr), EvalErr> {
-        let err = || EvalErr::InvalidArgs("not enough arguments");
-        let first = self.next().ok_or_else(err)?;
-        let second = self.next().ok_or_else(err)?;
+    fn get_two_or_else(&mut self, err: F) -> Result<(Expr, Expr), EvalErr> {
+        let first = self.next().ok_or_else(&err)?;
+        let second = self.next().ok_or_else(&err)?;
         Ok((first, second))
     }
 
-    fn get_three(&mut self) -> Result<(Expr, Expr, Expr), EvalErr> {
-        let err = || EvalErr::InvalidArgs("not enough arguments");
-        let first = self.next().ok_or_else(err)?;
-        let second = self.next().ok_or_else(err)?;
-        let third = self.next().ok_or_else(err)?;
+    fn get_three_or_else(&mut self, err: F) -> Result<(Expr, Expr, Expr), EvalErr> {
+        let first = self.next().ok_or_else(&err)?;
+        let second = self.next().ok_or_else(&err)?;
+        let third = self.next().ok_or_else(&err)?;
         Ok((first, second, third))
     }
 
-    fn get_one_and_rest(mut self) -> Result<(Expr, IntoIter<Expr>), EvalErr> {
-        let err = || EvalErr::InvalidArgs("not enough arguments");
-        let first = self.next().ok_or_else(err)?;
+    fn get_one_and_rest_or_else(mut self, err: F) -> Result<(Expr, IntoIter<Expr>), EvalErr> {
+        let first = self.next().ok_or_else(&err)?;
         Ok((first, self))
     }
 }

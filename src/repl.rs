@@ -3,8 +3,8 @@ use std::io::{self, Write};
 use crate::enviroment::EnvRef;
 use crate::evaluator;
 use crate::lexer::TokenStream;
-use crate::parser::Expr;
 use crate::parser::Parser;
+use crate::print::Print;
 
 pub struct Repl {
     global_env: EnvRef,
@@ -39,11 +39,7 @@ impl Repl {
                 for exp in exprs.into_iter() {
                     match evaluator::eval(exp, &self.global_env) {
                         Ok(evalulated) => {
-                            if let Expr::Proc(p) = evalulated {
-                                println!("{:?}", p.printable())
-                            } else {
-                                println!("{:?}", evalulated)
-                            }
+                            println!("{}", evalulated.print())
                         }
                         Err(err) => eprintln!("{err}"),
                     }

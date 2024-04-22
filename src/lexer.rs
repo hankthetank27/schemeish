@@ -1,8 +1,8 @@
 use core::str::Chars;
 use std::iter::Peekable;
-use std::vec::IntoIter;
 
 use crate::error::EvalErr;
+use crate::utils::SoftIter;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -53,9 +53,7 @@ impl<'a> TokenStream<'a> {
         match self.0.next() {
             Some('t') => Ok(Token::Boolean(true)),
             Some('f') => Ok(Token::Boolean(false)),
-            Some(c) => Err(EvalErr::UnexpectedToken(
-                format!("expected #t or #f, got #{}", c).to_string(),
-            )),
+            Some(c) => Err(EvalErr::UnexpectedToken(c.to_string())),
             None => Err(EvalErr::MalformedToken(
                 "expected charater indicating bool type",
             )),
@@ -63,7 +61,7 @@ impl<'a> TokenStream<'a> {
     }
 
     fn parse_string(&mut self) -> TokenRes<Token> {
-        let value: String = self.take_until(|c| c != &'"').collect();
+        let value: String = self.0.take_until(|c| c != &'"').collect();
         self.0
             .next() //consume remaining quote
             .ok_or(EvalErr::MalformedToken("unclosed string"))?;
@@ -72,6 +70,7 @@ impl<'a> TokenStream<'a> {
 
     fn parse_symbol(&mut self) -> TokenRes<Token> {
         let value: String = self
+            .0
             .take_until(|c| !c.is_numeric() && !end_of_token(c))
             .collect();
         match self.0.peek() {
@@ -90,6 +89,7 @@ impl<'a> TokenStream<'a> {
     fn parse_number(&mut self) -> TokenRes<Token> {
         let err = EvalErr::MalformedToken("failed to parse number");
         let value: String = self
+            .0
             .take_until(|c| c.is_numeric() && !end_of_token(c))
             .collect();
         match self.0.peek() {
@@ -112,22 +112,9 @@ impl<'a> TokenStream<'a> {
 
     fn consume_comment(&mut self) -> Option<&mut Peekable<Chars<'a>>> {
         if self.0.peek()? == &';' {
-            self.take_until(|c| c != &'\n');
+            self.0.take_until(|c| c != &'\n');
         }
         Some(&mut self.0)
-    }
-
-    fn take_until<F>(&mut self, pred: F) -> IntoIter<char>
-    where
-        F: Fn(&char) -> bool,
-    {
-        let mut new = vec![];
-
-        while self.0.peek().map_or(false, &pred) {
-            new.push(self.0.next().unwrap())
-        }
-
-        new.into_iter()
     }
 }
 
