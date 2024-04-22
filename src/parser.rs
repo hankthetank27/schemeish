@@ -4,7 +4,7 @@ use crate::error::EvalErr;
 use crate::lexer::{Token, TokenStream};
 use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
-use crate::special_form::{Define, If, Lambda};
+use crate::special_form::{Assignment, Define, If, Lambda};
 use crate::utils::{GetVals, ToExpr};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -16,6 +16,7 @@ pub enum Expr {
     If(Box<If>),
     Define(Box<Define>),
     Lambda(Box<Lambda>),
+    Assignment(Box<Assignment>),
     EmptyList,
     // Quoted(Box<Expr>),
 }
@@ -51,11 +52,12 @@ impl<'a> Parser<'a> {
             Token::If => self.parse_if(),
             Token::Lambda => self.parse_lambda(),
             Token::Define => self.parse_define(),
+            Token::Assignment => self.parse_assignment(),
             x @ Token::Number(_)
             | x @ Token::Str(_)
             | x @ Token::Boolean(_)
             | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
-            _ => Err(EvalErr::UnexpectedEnd),
+            Token::RParen => Err(EvalErr::UnexpectedToken(")".to_string())),
             // Token::LParen => match self.peek_or_err(EvalErr::UnexpectedEnd)? {
             //     Token::If => {
             //         self.tokens.next();
@@ -131,6 +133,18 @@ impl<'a> Parser<'a> {
                 Ok(Define::new(first, rest.collect()).to_expr())
             }
             _ => Err(EvalErr::UnexpectedToken("define".to_string())),
+        }
+    }
+
+    fn parse_assignment(&mut self) -> Result<Expr, EvalErr> {
+        match self.parse_out_list()? {
+            Expr::List(rest) => {
+                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(|| {
+                    EvalErr::InvalidArgs("'set!' expression. expected identifier and value")
+                })?;
+                Ok(Assignment::new(first, rest.collect()).to_expr())
+            }
+            _ => Err(EvalErr::UnexpectedToken("set!".to_string())),
         }
     }
 

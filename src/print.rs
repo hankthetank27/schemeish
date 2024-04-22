@@ -12,6 +12,7 @@ impl Print for Token {
             Token::If => "if".into(),
             Token::Define => "define".into(),
             Token::Lambda => "lambda".into(),
+            Token::Assignment => "set!".into(),
             Token::Symbol(s) => s.into(),
             Token::Number(n) => n.to_string(),
             Token::Boolean(b) => match b {

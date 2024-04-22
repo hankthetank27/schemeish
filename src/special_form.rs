@@ -106,3 +106,32 @@ impl SpecialForm for If {
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Assignment {
+    identifier: Expr,
+    body: Vec<Expr>,
+}
+
+impl Assignment {
+    pub fn new(identifier: Expr, body: Vec<Expr>) -> Self {
+        Assignment { identifier, body }
+    }
+}
+
+impl SpecialForm for Assignment {
+    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        let mut body = self.body.into_iter();
+        match self.identifier {
+            //bind var
+            Expr::Atom(Token::Symbol(identifier)) => {
+                let value = body
+                    .next()
+                    .ok_or(EvalErr::InvalidArgs("variable has no declared value"))?;
+
+                env.update_val(identifier.to_string(), eval(value, env)?)
+            }
+            x => Err(EvalErr::TypeError(("symbol", x))),
+        }
+    }
+}

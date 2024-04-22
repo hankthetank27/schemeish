@@ -14,6 +14,7 @@ pub enum Token {
     If,
     Define,
     Lambda,
+    Assignment,
     Symbol(String),
 }
 
@@ -81,6 +82,7 @@ impl<'a> TokenStream<'a> {
                 "if" => Token::If,
                 "define" => Token::Define,
                 "lambda" => Token::Lambda,
+                "set!" => Token::Assignment,
                 _ => Token::Symbol(value),
             }),
         }

@@ -6,6 +6,7 @@ use crate::lexer::Token;
 use crate::parser::Expr;
 use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
+use crate::special_form::Assignment;
 use crate::special_form::Define;
 use crate::special_form::If;
 use crate::special_form::Lambda;
@@ -147,5 +148,11 @@ impl ToExpr for Lambda {
 impl ToExpr for Define {
     fn to_expr(self) -> Expr {
         Expr::Define(Box::new(self))
+    }
+}
+
+impl ToExpr for Assignment {
+    fn to_expr(self) -> Expr {
+        Expr::Assignment(Box::new(self))
     }
 }

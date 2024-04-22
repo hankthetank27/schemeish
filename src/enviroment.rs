@@ -44,6 +44,14 @@ impl EnvRef {
             .ok_or(EvalErr::NilEnv)
             .map(|env| env.insert_val(name, val))
     }
+
+    pub fn update_val(&self, name: String, val: Expr) -> Result<Expr, EvalErr> {
+        self.0
+            .borrow_mut()
+            .as_mut()
+            .ok_or(EvalErr::NilEnv)
+            .map(|env| env.update_val(name, val))?
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -70,6 +78,18 @@ impl Env {
     pub fn insert_val(&mut self, name: String, val: Expr) -> Expr {
         self.values.insert(name, val.clone());
         val
+    }
+
+    pub fn update_val(&mut self, name: String, val: Expr) -> Result<Expr, EvalErr> {
+        match self.values.get_mut(&name) {
+            Some(entry) => {
+                *entry = val;
+                self.get_val(&name)
+            }
+            None => Err(EvalErr::UnboundVar(
+                "cannot reassign unbound variable".to_string(),
+            )),
+        }
     }
 }
 

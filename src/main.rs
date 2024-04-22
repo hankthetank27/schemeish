@@ -232,6 +232,18 @@ mod test {
     }
 
     #[test]
+    fn reassign_var() {
+        let scm = "
+            (define x 2)
+            (set! x 1)
+            x ";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(2).unwrap().to_owned();
+        assert_eq!(res, Atom(Number(1.0)));
+    }
+
+    #[test]
     fn read_file() {
         let mut path = vec!["".to_string(), "./test_scm/factorial.scm".to_string()].into_iter();
         let scm = match read(&mut path).unwrap() {
