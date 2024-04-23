@@ -7,7 +7,6 @@ use schemeish::enviroment::EnvRef;
 use schemeish::evaluator;
 use schemeish::lexer::TokenStream;
 use schemeish::parser::Parser;
-use schemeish::print::Print;
 use schemeish::repl::Repl;
 
 enum Runtime {
@@ -40,9 +39,7 @@ fn run_from_file(file: &str) {
     let global = EnvRef::global();
     for exp in exprs.into_iter() {
         match evaluator::eval(exp, &global) {
-            Ok(evalulated) => {
-                println!("{:?}", evalulated.print())
-            }
+            Ok(_) => (),
             Err(err) => eprintln!("{err}"),
         }
     }

@@ -1,11 +1,21 @@
 use crate::{lexer::Token, parser::Expr, procedure::Proc};
 
-pub trait Print {
-    fn print(self) -> String;
+pub trait Print<T> {
+    fn print(&self);
 }
 
-impl Print for Token {
-    fn print(self) -> String {
+impl<T: Printable> Print<T> for T {
+    fn print(&self) {
+        println!("{}", self.printable())
+    }
+}
+
+trait Printable {
+    fn printable(&self) -> String;
+}
+
+impl Printable for Token {
+    fn printable(&self) -> String {
         match self {
             Token::LParen => "(".into(),
             Token::RParen => ")".into(),
@@ -24,20 +34,20 @@ impl Print for Token {
     }
 }
 
-impl Print for Proc {
-    fn print(self) -> String {
+impl Printable for Proc {
+    fn printable(&self) -> String {
         match self {
             Proc::Primitive(p) => format!("#<primitive-{:?}>", p.inner()),
-            Proc::Compound(p) => format!("#<closure-(#f{:?})>", p.params()),
+            Proc::Compound(p) => format!("#<closure-(#f{:?})>", p.to_owned().params()),
         }
     }
 }
 
-impl Print for Expr {
-    fn print(self) -> String {
+impl Printable for Expr {
+    fn printable(&self) -> String {
         match self {
-            Expr::Atom(a) => a.print(),
-            Expr::Proc(p) => p.print(),
+            Expr::Atom(a) => a.printable(),
+            Expr::Proc(p) => p.printable(),
             x => format!("{:?}", x),
         }
     }

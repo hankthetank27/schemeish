@@ -18,7 +18,7 @@ impl Repl {
     }
 
     pub fn run(&self) {
-        println!("Schemeish v0.0.1");
+        println!("Schemeish v0.1.0");
         println!("Welcome :)");
 
         loop {
@@ -38,9 +38,7 @@ impl Repl {
 
                 for exp in exprs.into_iter() {
                     match evaluator::eval(exp, &self.global_env) {
-                        Ok(evalulated) => {
-                            println!("{}", evalulated.print())
-                        }
+                        Ok(evalulated) => evalulated.print(),
                         Err(err) => eprintln!("{err}"),
                     }
                 }

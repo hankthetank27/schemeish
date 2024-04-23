@@ -36,16 +36,16 @@ impl<'a> Parser<'a> {
 
     pub fn parse(mut self) -> Result<Vec<Expr>, EvalErr> {
         while self.tokens.peek().is_some() {
-            let expr = self.read_from_token()?;
+            let expr = self.parse_from_token()?;
             self.parsed_exprs.push(expr)
         }
         Ok(self.parsed_exprs)
     }
 
-    fn read_from_token(&mut self) -> Result<Expr, EvalErr> {
+    fn parse_from_token(&mut self) -> Result<Expr, EvalErr> {
         match self.next_or_err(EvalErr::UnexpectedEnd)? {
             Token::LParen => {
-                let res = self.parse_out_list()?;
+                let res = self.parse_inner_list()?;
                 self.tokens.next(); // consume remaining paren
                 Ok(res)
             }
@@ -58,48 +58,26 @@ impl<'a> Parser<'a> {
             | x @ Token::Boolean(_)
             | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
             Token::RParen => Err(EvalErr::UnexpectedToken(")".to_string())),
-            // Token::LParen => match self.peek_or_err(EvalErr::UnexpectedEnd)? {
-            //     Token::If => {
-            //         self.tokens.next();
-            //         self.parse_if()
-            //     }
-            //     Token::Lambda => {
-            //         self.tokens.next();
-            //         self.parse_lambda()
-            //     }
-            //     Token::Define => {
-            //         self.tokens.next();
-            //         self.parse_define()
-            //     }
-            //     _ => self.parse_out_list(),
-            // },
-            // x @ Token::Number(_)
-            // | x @ Token::Str(_)
-            // | x @ Token::Boolean(_)
-            // | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
-            // Token::RParen => Err(EvalErr::UnexpectedToken(")".to_string())),
-            // _ => Err(EvalErr::UnexpectedEnd),
         }
     }
 
-    fn parse_out_list(&mut self) -> Result<Expr, EvalErr> {
+    fn parse_inner_list(&mut self) -> Result<Expr, EvalErr> {
         let mut parsed_exprs: Vec<Expr> = vec![];
         while let Some(t) = self.tokens.peek() {
             if let Ok(Token::RParen) = t {
-                // self.tokens.next();
                 match parsed_exprs.len() {
                     0 => return Ok(Expr::EmptyList),
                     _ => return Ok(Expr::List(parsed_exprs)),
                 }
             } else {
-                parsed_exprs.push(self.read_from_token()?)
+                parsed_exprs.push(self.parse_from_token()?)
             }
         }
         Err(EvalErr::UnexpectedEnd)
     }
 
     fn parse_if(&mut self) -> Result<Expr, EvalErr> {
-        match self.parse_out_list()? {
+        match self.parse_inner_list()? {
             Expr::List(rest) => {
                 let (p, c, a) = rest.into_iter().get_three_or_else(|| {
                     EvalErr::InvalidArgs(
@@ -113,7 +91,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_lambda(&mut self) -> Result<Expr, EvalErr> {
-        match self.parse_out_list()? {
+        match self.parse_inner_list()? {
             Expr::List(rest) => {
                 let (first, rest) = rest.into_iter().get_one_and_rest_or_else(|| {
                     EvalErr::InvalidArgs("'lambda' expression. expected parameters and body")
@@ -125,7 +103,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_define(&mut self) -> Result<Expr, EvalErr> {
-        match self.parse_out_list()? {
+        match self.parse_inner_list()? {
             Expr::List(rest) => {
                 let (first, rest) = rest.into_iter().get_one_and_rest_or_else(|| {
                     EvalErr::InvalidArgs("'define' expression. expected identifier and value")
@@ -137,7 +115,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_assignment(&mut self) -> Result<Expr, EvalErr> {
-        match self.parse_out_list()? {
+        match self.parse_inner_list()? {
             Expr::List(rest) => {
                 let (first, rest) = rest.into_iter().get_one_and_rest_or_else(|| {
                     EvalErr::InvalidArgs("'set!' expression. expected identifier and value")
