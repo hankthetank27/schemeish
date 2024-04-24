@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::error::EvalErr;
 use crate::parser::Expr;
-use crate::primitives::{io, numeric, pair};
+use crate::primitives::{io, numeric, pair, string};
 use crate::procedure::{PSig, Primitive};
 use crate::utils::ToExpr;
 
@@ -109,6 +109,7 @@ fn install_primitives(env: EnvRef) -> EnvRef {
         ("null?", pair::null_check as PSig),
         ("pair?", pair::pair_check as PSig),
         ("display", io::display as PSig),
+        ("equal?", string::equal as PSig),
     ];
 
     for (name, proc) in primitives.into_iter() {

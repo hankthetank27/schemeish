@@ -7,7 +7,7 @@ use std::vec::IntoIter;
 use crate::error::EvalErr;
 use crate::evaluator::Args;
 use crate::parser::Expr;
-use crate::utils::{GetVals, SoftIter, ToExpr};
+use crate::utils::{GetVals, ToExpr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pair {

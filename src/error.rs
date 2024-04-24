@@ -2,6 +2,7 @@ use std::fmt::Debug;
 use std::{error::Error, fmt};
 
 use crate::parser::Expr;
+use crate::print::Printable;
 
 #[derive(Debug, Clone)]
 pub enum EvalErr {
@@ -22,9 +23,11 @@ impl fmt::Display for EvalErr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let err_msg = match self {
             EvalErr::UnboundVar(var) => format!("accessing unbound variable {var}"),
-            EvalErr::InvalidExpr(expr) => format!("invalid expression {:?}", expr),
+            EvalErr::InvalidExpr(expr) => format!("invalid expression {}", expr.printable()),
             EvalErr::InvalidArgs(msg) => format!("invalid argument, {msg}"),
-            EvalErr::TypeError((expected, got)) => format!("expected {expected}, got {:?}", got),
+            EvalErr::TypeError((expected, got)) => {
+                format!("expected {expected}, got {}", got.printable())
+            }
             EvalErr::UnexpectedToken(msg) => format!("unexpected token {msg}"),
             EvalErr::MalformedToken(msg) => msg.to_string(),
             EvalErr::UnexpectedEnd => "unexpected end of expression".to_string(),

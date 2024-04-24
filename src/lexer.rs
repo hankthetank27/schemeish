@@ -12,6 +12,8 @@ pub enum Token {
     Boolean(bool),
     Str(String),
     If,
+    And,
+    Or,
     Define,
     Lambda,
     Assignment,
@@ -89,6 +91,8 @@ impl<'a> TokenStream<'a> {
                 "lambda" => Token::Lambda,
                 "set!" => Token::Assignment,
                 "quote" => Token::Quote,
+                "and" => Token::And,
+                "or" => Token::Or,
                 _ => Token::Symbol(value),
             }),
         }

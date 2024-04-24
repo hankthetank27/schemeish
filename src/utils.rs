@@ -6,10 +6,12 @@ use crate::lexer::Token;
 use crate::parser::Expr;
 use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
+use crate::special_form::And;
 use crate::special_form::Assignment;
 use crate::special_form::Define;
 use crate::special_form::If;
 use crate::special_form::Lambda;
+use crate::special_form::Or;
 
 pub trait IterInnerVal {
     fn into_nums(self) -> Result<Vec<f64>, EvalErr>;
@@ -160,5 +162,17 @@ impl ToExpr for Define {
 impl ToExpr for Assignment {
     fn to_expr(self) -> Expr {
         Expr::Assignment(Box::new(self))
+    }
+}
+
+impl ToExpr for And {
+    fn to_expr(self) -> Expr {
+        Expr::And(self)
+    }
+}
+
+impl ToExpr for Or {
+    fn to_expr(self) -> Expr {
+        Expr::Or(self)
     }
 }

@@ -64,7 +64,7 @@ mod test {
 
     use schemeish::{
         error::EvalErr,
-        lexer::Token::Number,
+        lexer::Token::{Boolean, Number},
         parser::Expr,
         parser::Expr::{Atom, Dotted, EmptyList},
         primitives::pair::Pair,
@@ -224,6 +224,42 @@ mod test {
         let evalulated = eval_test(scm);
         let res = evalulated.get(3).unwrap().to_owned();
         assert_eq!(res, Atom(Number(1.0)));
+    }
+
+    #[test]
+    fn or_true() {
+        let scm = "(or (= 1 2) #f #t #f)";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        assert_eq!(res, Atom(Boolean(true)));
+    }
+
+    #[test]
+    fn or_false() {
+        let scm = "(or (= 1 2) #f #f)";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        assert_eq!(res, Atom(Boolean(false)));
+    }
+
+    #[test]
+    fn and_true() {
+        let scm = "(and (= 2 2) #t (= 1 1))";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        assert_eq!(res, Atom(Boolean(true)));
+    }
+
+    #[test]
+    fn and_false() {
+        let scm = "(and (= 1 1) (= 0 0) #f (= 5 5))";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        assert_eq!(res, Atom(Boolean(false)));
     }
 
     #[test]

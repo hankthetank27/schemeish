@@ -10,7 +10,7 @@ impl<T: Printable> Print<T> for T {
     }
 }
 
-trait Printable {
+pub trait Printable {
     fn printable(&self) -> String;
 }
 
@@ -23,6 +23,8 @@ impl Printable for Token {
             Token::Define => "define".into(),
             Token::Lambda => "lambda".into(),
             Token::Assignment => "set!".into(),
+            Token::And => "and".into(),
+            Token::Or => "or".into(),
             Token::Quote => "'".into(),
             Token::Symbol(s) => s.into(),
             Token::Number(n) => n.to_string(),

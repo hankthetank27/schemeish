@@ -4,7 +4,7 @@ use crate::error::EvalErr;
 use crate::lexer::{Token, TokenStream};
 use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
-use crate::special_form::{Assignment, Define, If, Lambda};
+use crate::special_form::{And, Assignment, Define, If, Lambda, Or};
 use crate::utils::{GetVals, ToExpr};
 
 // We treat any list that is expected to be evaluated as a procedure during parsing as a vector
@@ -19,6 +19,8 @@ pub enum Expr {
     Define(Box<Define>),
     Lambda(Box<Lambda>),
     Assignment(Box<Assignment>),
+    And(And),
+    Or(Or),
     Quoted(Box<Expr>),
     EmptyList,
 }
@@ -56,6 +58,8 @@ impl<'a> Parser<'a> {
             Token::Define => self.parse_define(),
             Token::Assignment => self.parse_assignment(),
             Token::Quote => self.parse_quote(),
+            Token::And => self.parse_and(),
+            Token::Or => self.parse_or(),
             x @ Token::Number(_)
             | x @ Token::Str(_)
             | x @ Token::Boolean(_)
@@ -129,6 +133,24 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_and(&mut self) -> Result<Expr, EvalErr> {
+        let arg_err = || EvalErr::InvalidArgs("'and' expression. expected arguments");
+        match self.parse_inner_list()? {
+            Expr::List(rest) => Ok(And::new(rest).to_expr()),
+            Expr::EmptyList => Err(arg_err()),
+            _ => Err(EvalErr::UnexpectedToken("and".to_string())),
+        }
+    }
+
+    fn parse_or(&mut self) -> Result<Expr, EvalErr> {
+        let arg_err = || EvalErr::InvalidArgs("'or' expression. expected arguments");
+        match self.parse_inner_list()? {
+            Expr::List(rest) => Ok(Or::new(rest).to_expr()),
+            Expr::EmptyList => Err(arg_err()),
+            _ => Err(EvalErr::UnexpectedToken("or".to_string())),
+        }
+    }
+
     // We treat a quoted expression as a normal expression behind an extra indrection, with the
     // addtional major differnce being we parse lists as pairs instead of vectors. this way they
     // can be accessed at runtime rather than evaluated as procedures.
@@ -143,6 +165,8 @@ impl<'a> Parser<'a> {
             Token::Lambda => Ok("lambda".to_expr()),
             Token::Define => Ok("define".to_expr()),
             Token::Assignment => Ok("set!".to_expr()),
+            Token::And => Ok("and".to_expr()),
+            Token::Or => Ok("or".to_expr()),
             Token::Quote => self.parse_quote(),
             x @ Token::Number(_)
             | x @ Token::Str(_)

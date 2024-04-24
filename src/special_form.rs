@@ -123,7 +123,6 @@ impl SpecialForm for Assignment {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         let mut body = self.body.into_iter();
         match self.identifier {
-            //bind var
             Expr::Atom(Token::Symbol(identifier)) => {
                 let value = body
                     .next()
@@ -133,5 +132,63 @@ impl SpecialForm for Assignment {
             }
             x => Err(EvalErr::TypeError(("symbol", x))),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct And {
+    body: Vec<Expr>,
+}
+
+impl And {
+    pub fn new(body: Vec<Expr>) -> Self {
+        And { body }
+    }
+}
+
+impl SpecialForm for And {
+    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        for expr in self.body.into_iter() {
+            match eval(expr, env)? {
+                Expr::Atom(Token::Boolean(n)) => {
+                    if !n {
+                        return Ok(n.to_expr());
+                    } else {
+                        Ok(())
+                    }
+                }
+                x => Err(EvalErr::TypeError(("boolean", x))),
+            }?;
+        }
+        Ok(true.to_expr())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Or {
+    body: Vec<Expr>,
+}
+
+impl Or {
+    pub fn new(body: Vec<Expr>) -> Self {
+        Or { body }
+    }
+}
+
+impl SpecialForm for Or {
+    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        for expr in self.body.into_iter() {
+            match eval(expr, env)? {
+                Expr::Atom(Token::Boolean(n)) => {
+                    if n {
+                        return Ok(n.to_expr());
+                    } else {
+                        Ok(())
+                    }
+                }
+                x => Err(EvalErr::TypeError(("boolean", x))),
+            }?;
+        }
+        Ok(false.to_expr())
     }
 }
