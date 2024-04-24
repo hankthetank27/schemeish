@@ -7,6 +7,8 @@ use crate::procedure::Proc;
 use crate::special_form::{Assignment, Define, If, Lambda};
 use crate::utils::{GetVals, ToExpr};
 
+// We treat any list that is expected to be evaluated as a procedure during parsing as a vector
+// of expressions rather than a proper list of pairs to simplify and reduce the cost of the parsing process.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     List(Vec<Expr>),
@@ -17,8 +19,8 @@ pub enum Expr {
     Define(Box<Define>),
     Lambda(Box<Lambda>),
     Assignment(Box<Assignment>),
+    Quoted(Box<Expr>),
     EmptyList,
-    // Quoted(Box<Expr>),
 }
 
 pub struct Parser<'a> {
@@ -53,6 +55,7 @@ impl<'a> Parser<'a> {
             Token::Lambda => self.parse_lambda(),
             Token::Define => self.parse_define(),
             Token::Assignment => self.parse_assignment(),
+            Token::Quote => self.parse_quote(),
             x @ Token::Number(_)
             | x @ Token::Str(_)
             | x @ Token::Boolean(_)
@@ -77,52 +80,92 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_if(&mut self) -> Result<Expr, EvalErr> {
+        let arg_err = || {
+            EvalErr::InvalidArgs("'if' expression. expected condition, predicate, and consequence")
+        };
         match self.parse_inner_list()? {
             Expr::List(rest) => {
-                let (p, c, a) = rest.into_iter().get_three_or_else(|| {
-                    EvalErr::InvalidArgs(
-                        "'if' expression. expected condition, predicate, and consequence",
-                    )
-                })?;
+                let (p, c, a) = rest.into_iter().get_three_or_else(arg_err)?;
                 Ok(If::new(p, c, a).to_expr())
             }
+            Expr::EmptyList => Err(arg_err()),
             _ => Err(EvalErr::UnexpectedToken("if".to_string())),
         }
     }
 
     fn parse_lambda(&mut self) -> Result<Expr, EvalErr> {
+        let arg_err = || EvalErr::InvalidArgs("'lambda' expression. expected parameters and body");
         match self.parse_inner_list()? {
             Expr::List(rest) => {
-                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(|| {
-                    EvalErr::InvalidArgs("'lambda' expression. expected parameters and body")
-                })?;
+                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(arg_err)?;
                 Ok(Lambda::new(first, rest.collect()).to_expr())
             }
+            Expr::EmptyList => Err(arg_err()),
             _ => Err(EvalErr::UnexpectedToken("lambda".to_string())),
         }
     }
 
     fn parse_define(&mut self) -> Result<Expr, EvalErr> {
+        let arg_err = || EvalErr::InvalidArgs("'define' expression. expected identifier and value");
         match self.parse_inner_list()? {
             Expr::List(rest) => {
-                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(|| {
-                    EvalErr::InvalidArgs("'define' expression. expected identifier and value")
-                })?;
+                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(arg_err)?;
                 Ok(Define::new(first, rest.collect()).to_expr())
             }
+            Expr::EmptyList => Err(arg_err()),
             _ => Err(EvalErr::UnexpectedToken("define".to_string())),
         }
     }
 
     fn parse_assignment(&mut self) -> Result<Expr, EvalErr> {
+        let arg_err = || EvalErr::InvalidArgs("'set!' expression. expected identifier and value");
         match self.parse_inner_list()? {
             Expr::List(rest) => {
-                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(|| {
-                    EvalErr::InvalidArgs("'set!' expression. expected identifier and value")
-                })?;
+                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(arg_err)?;
                 Ok(Assignment::new(first, rest.collect()).to_expr())
             }
+            Expr::EmptyList => Err(arg_err()),
             _ => Err(EvalErr::UnexpectedToken("set!".to_string())),
+        }
+    }
+
+    // We treat a quoted expression as a normal expression behind an extra indrection, with the
+    // addtional major differnce being we parse lists as pairs instead of vectors. this way they
+    // can be accessed at runtime rather than evaluated as procedures.
+    fn parse_quote(&mut self) -> Result<Expr, EvalErr> {
+        let res = match self.next_or_err(EvalErr::UnexpectedEnd)? {
+            Token::LParen => {
+                let res = self.parse_inner_quote()?;
+                self.tokens.next(); // consume remaining paren
+                Ok(res)
+            }
+            Token::If => Ok("if".to_expr()),
+            Token::Lambda => Ok("lambda".to_expr()),
+            Token::Define => Ok("define".to_expr()),
+            Token::Assignment => Ok("set!".to_expr()),
+            Token::Quote => self.parse_quote(),
+            x @ Token::Number(_)
+            | x @ Token::Str(_)
+            | x @ Token::Boolean(_)
+            | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
+            Token::RParen => Err(EvalErr::UnexpectedToken(")".to_string())),
+        }?;
+
+        Ok(Expr::Quoted(Box::new(res)))
+    }
+
+    fn parse_inner_quote(&mut self) -> Result<Expr, EvalErr> {
+        match self.tokens.peek() {
+            Some(t) => match t {
+                Ok(Token::RParen) => Ok(Expr::EmptyList),
+                Ok(_) => {
+                    let current = self.parse_quote()?;
+                    let next = self.parse_inner_quote()?;
+                    Ok(Expr::Dotted(Pair::new(current, next)))
+                }
+                Err(x) => Err(x.to_owned()),
+            },
+            None => Err(EvalErr::UnexpectedEnd),
         }
     }
 
@@ -150,6 +193,20 @@ mod test {
                 ]),
             ]),
         ];
+        let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
+        assert_eq!(res, exprs);
+    }
+
+    #[test]
+    fn quoted() {
+        let scm = "'(+ 1 )";
+        let res: Vec<Expr> = vec![Expr::Quoted(Box::new(Expr::Dotted(Pair::new(
+            Expr::Quoted(Box::new(Expr::Atom(Token::Symbol("+".to_string())))),
+            Expr::Dotted(Pair::new(
+                Expr::Quoted(Box::new(Expr::Atom(Token::Number(1.0)))),
+                Expr::EmptyList,
+            )),
+        ))))];
         let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
         assert_eq!(res, exprs);
     }

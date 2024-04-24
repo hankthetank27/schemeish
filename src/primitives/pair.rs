@@ -18,7 +18,7 @@ pub struct Pair {
 }
 
 impl Pair {
-    fn new(car: Expr, cdr: Expr) -> Pair {
+    pub fn new(car: Expr, cdr: Expr) -> Pair {
         Pair {
             car: Box::new(car),
             cdr: Box::new(cdr),
@@ -41,11 +41,11 @@ pub fn cons(args: Args) -> Result<Expr, EvalErr> {
         .get_two_or_else(|| EvalErr::InvalidArgs("'cons'. expected two arguments."))?;
 
     match second {
-        Expr::List(mut ls) => {
-            ls.insert(0, first);
-            Ok(ls.to_expr())
-        }
-        x @ _ => Ok(Pair::new(first, x).to_expr()),
+        // Expr::List(mut ls) => {
+        //     ls.insert(0, first);
+        //     Ok(ls.to_expr())
+        // }
+        x => Ok(Pair::new(first, x).to_expr()),
     }
 }
 
@@ -56,14 +56,13 @@ pub fn car(args: Args) -> Result<Expr, EvalErr> {
         .get_one_or_else(|| EvalErr::InvalidArgs("'car'. expected argument"))?;
 
     match expr {
-        Expr::List(ls) => ls
-            .into_iter()
-            .get_one_or_else(|| EvalErr::MapAsRecoverable)
-            .or_else(|_| Ok(Expr::EmptyList)),
-
+        // Expr::List(ls) => ls
+        //     .into_iter()
+        //     .get_one_or_else(|| EvalErr::MapAsRecoverable)
+        //     .or_else(|_| Ok(Expr::EmptyList)),
         Expr::Dotted(p) => Ok(p.car()),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access car of empty list")),
-        x => Err(EvalErr::TypeError(("list", x))),
+        x => Err(EvalErr::TypeError(("pair", x))),
     }
 }
 
@@ -74,19 +73,19 @@ pub fn cdr(args: Args) -> Result<Expr, EvalErr> {
         .get_one_or_else(|| EvalErr::InvalidArgs("'cdr'. expected argument"))?;
 
     match expr {
-        Expr::List(ls) => {
-            let (_, rest) = ls.into_iter().get_one_and_rest_or_else(|| {
-                EvalErr::InvalidArgs("'cdr' on list. expected list")
-            })?;
+        // Expr::List(ls) => {
+        //     let (_, rest) = ls.into_iter().get_one_and_rest_or_else(|| {
+        //         EvalErr::InvalidArgs("'cdr' on list. expected list")
+        //     })?;
 
-            match rest.peekable().has_next() {
-                Some(ls) => Ok(ls.collect::<Vec<Expr>>().to_expr()),
-                None => Ok(Expr::EmptyList),
-            }
-        }
+        //     match rest.peekable().has_next() {
+        //         Some(ls) => Ok(ls.collect::<Vec<Expr>>().to_expr()),
+        //         None => Ok(Expr::EmptyList),
+        //     }
+        // }
         Expr::Dotted(p) => Ok(p.cdr()),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access cdr of empty list")),
-        x => Err(EvalErr::TypeError(("list", x))),
+        x => Err(EvalErr::TypeError(("pair", x))),
     }
 }
 

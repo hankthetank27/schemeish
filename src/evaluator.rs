@@ -15,6 +15,7 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
                 .into_iter()
                 .get_one_and_rest_or_else(|| EvalErr::InvalidArgs("expected operation"))?;
             let args = Args::new(args.collect(), env);
+
             match op {
                 Expr::If(if_x) => if_x.eval(env),
                 Expr::Define(def_x) => def_x.eval(env),
@@ -26,13 +27,17 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
             }
         }
         // self evaluating
-        x @ _ => Ok(x),
+        Expr::Quoted(x) => Ok(*x),
+        x @ Expr::Atom(_) | x @ Expr::EmptyList => Ok(x),
+        x => Err(EvalErr::TypeError(("expression", x))),
     }
 }
 
 pub fn apply(op: Expr, args: Args) -> Result<Expr, EvalErr> {
     match eval(op, &args.env())? {
         Expr::Proc(proc) => match proc {
+            // TODO we want to make args eval to another instance of args so we can just call it once
+            // here instead of in each primitive function
             Proc::Primitive(proc) => proc.call(args),
             Proc::Compound(proc) => proc.call(args.eval()?),
         },

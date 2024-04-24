@@ -15,6 +15,7 @@ pub enum Token {
     Define,
     Lambda,
     Assignment,
+    Quote,
     Symbol(String),
 }
 
@@ -44,6 +45,10 @@ impl<'a> TokenStream<'a> {
             '"' => {
                 self.0.next();
                 Some(self.parse_string())
+            }
+            '\'' => {
+                self.0.next();
+                Some(Ok(Token::Quote))
             }
             c if c.is_numeric() => Some(self.parse_number()),
             _ => Some(self.parse_symbol()),
@@ -83,6 +88,7 @@ impl<'a> TokenStream<'a> {
                 "define" => Token::Define,
                 "lambda" => Token::Lambda,
                 "set!" => Token::Assignment,
+                "quote" => Token::Quote,
                 _ => Token::Symbol(value),
             }),
         }

@@ -99,9 +99,9 @@ impl If {
 
 impl SpecialForm for If {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        match eval(self.predicate, &env)? {
-            Expr::Atom(Token::Boolean(true)) => eval(self.consequence, &env),
-            Expr::Atom(Token::Boolean(false)) => eval(self.alternative, &env),
+        match eval(self.predicate, env)? {
+            Expr::Atom(Token::Boolean(true)) => eval(self.consequence, env),
+            Expr::Atom(Token::Boolean(false)) => eval(self.alternative, env),
             pred => Err(EvalErr::TypeError(("bool", pred))),
         }
     }

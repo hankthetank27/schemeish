@@ -109,6 +109,12 @@ impl ToExpr for f64 {
     }
 }
 
+impl ToExpr for &str {
+    fn to_expr(self) -> Expr {
+        Expr::Atom(Token::Symbol(self.to_string()))
+    }
+}
+
 impl ToExpr for bool {
     fn to_expr(self) -> Expr {
         Expr::Atom(Token::Boolean(self))

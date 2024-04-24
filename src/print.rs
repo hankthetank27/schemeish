@@ -23,6 +23,7 @@ impl Printable for Token {
             Token::Define => "define".into(),
             Token::Lambda => "lambda".into(),
             Token::Assignment => "set!".into(),
+            Token::Quote => "'".into(),
             Token::Symbol(s) => s.into(),
             Token::Number(n) => n.to_string(),
             Token::Boolean(b) => match b {

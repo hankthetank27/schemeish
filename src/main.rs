@@ -272,7 +272,7 @@ mod test {
             Runtime::Repl => panic!("expected file"),
         };
         let evalulated = eval_test(&scm);
-        let res = evalulated.get(2).unwrap().to_owned();
+        let res = evalulated.get(3).unwrap().to_owned();
         assert_eq!(res, Atom(Number(3628800.0)));
     }
 }
