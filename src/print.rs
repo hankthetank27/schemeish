@@ -25,7 +25,8 @@ impl Printable for Token {
             Token::Assignment => "set!".into(),
             Token::And => "and".into(),
             Token::Or => "or".into(),
-            Token::Quote => "'".into(),
+            Token::QuoteTick => "'".into(),
+            Token::QuoteProc => "quote".into(),
             Token::Symbol(s) => s.into(),
             Token::Number(n) => n.to_string(),
             Token::Boolean(b) => match b {

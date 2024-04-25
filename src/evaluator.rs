@@ -19,9 +19,9 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
             match op {
                 Expr::If(if_x) => if_x.eval(env),
                 Expr::Define(def_x) => def_x.eval(env),
-                Expr::Lambda(lam_x) => lam_x.eval(env),
                 Expr::Assignment(ass_x) => ass_x.eval(env),
                 Expr::And(and_x) => and_x.eval(env),
+                Expr::Lambda(lam_x) => lam_x.eval(env),
                 Expr::Or(or_x) => or_x.eval(env),
                 Expr::List(_) => apply(op, args),
                 Expr::Atom(Token::Symbol(_)) => apply(op, args),

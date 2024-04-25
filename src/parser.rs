@@ -3,6 +3,7 @@ use std::iter::Peekable;
 use crate::error::EvalErr;
 use crate::lexer::{Token, TokenStream};
 use crate::primitives::pair::Pair;
+use crate::print::Printable;
 use crate::procedure::Proc;
 use crate::special_form::{And, Assignment, Define, If, Lambda, Or};
 use crate::utils::{GetVals, ToExpr};
@@ -23,6 +24,12 @@ pub enum Expr {
     Or(Or),
     Quoted(Box<Expr>),
     EmptyList,
+}
+
+impl Expr {
+    fn as_list(self) -> Result<Expr, EvalErr> {
+        Ok(Expr::List(vec![self]))
+    }
 }
 
 pub struct Parser<'a> {
@@ -48,23 +55,48 @@ impl<'a> Parser<'a> {
 
     fn parse_from_token(&mut self) -> Result<Expr, EvalErr> {
         match self.next_or_err(EvalErr::UnexpectedEnd)? {
-            Token::LParen => {
-                let res = self.parse_inner_list()?;
-                self.tokens.next(); // consume remaining paren
-                Ok(res)
-            }
-            Token::If => self.parse_if(),
-            Token::Lambda => self.parse_lambda(),
-            Token::Define => self.parse_define(),
-            Token::Assignment => self.parse_assignment(),
-            Token::Quote => self.parse_quote(),
-            Token::And => self.parse_and(),
-            Token::Or => self.parse_or(),
+            Token::LParen => match self.peek_or_err(EvalErr::UnexpectedEnd)? {
+                Token::If => {
+                    self.tokens.next();
+                    self.parse_if()?.as_list()
+                }
+                Token::Lambda => {
+                    self.tokens.next();
+                    self.parse_lambda()?.as_list()
+                }
+                Token::Define => {
+                    self.tokens.next();
+                    self.parse_define()?.as_list()
+                }
+                Token::Assignment => {
+                    self.tokens.next();
+                    self.parse_assignment()?.as_list()
+                }
+                Token::And => {
+                    self.tokens.next();
+                    self.parse_and()?.as_list()
+                }
+                Token::Or => {
+                    self.tokens.next();
+                    self.parse_or()?.as_list()
+                }
+                Token::QuoteProc => {
+                    self.tokens.next();
+                    let quoted = self.parse_quote();
+                    self.next_or_err(EvalErr::UnexpectedEnd)?; // consume remaining paren
+                    quoted
+                }
+                _ => self.parse_inner_list(),
+            },
+            Token::QuoteTick => self.parse_quote(),
             x @ Token::Number(_)
             | x @ Token::Str(_)
             | x @ Token::Boolean(_)
             | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
-            Token::RParen => Err(EvalErr::UnexpectedToken(")".to_string())),
+            // TODO: we may want to handle below as a special case? seems fine with a
+            // generic UnexpectedToken error though.
+            // p @ Token::RParen => Err(EvalErr::UnexpectedToken(p.printable())),
+            t => Err(EvalErr::UnexpectedToken(t.printable())),
         }
     }
 
@@ -72,6 +104,7 @@ impl<'a> Parser<'a> {
         let mut parsed_exprs: Vec<Expr> = vec![];
         while let Some(t) = self.tokens.peek() {
             if let Ok(Token::RParen) = t {
+                self.tokens.next();
                 match parsed_exprs.len() {
                     0 => return Ok(Expr::EmptyList),
                     _ => return Ok(Expr::List(parsed_exprs)),
@@ -93,7 +126,7 @@ impl<'a> Parser<'a> {
                 Ok(If::new(p, c, a).to_expr())
             }
             Expr::EmptyList => Err(arg_err()),
-            _ => Err(EvalErr::UnexpectedToken("if".to_string())),
+            t => Err(EvalErr::UnexpectedToken(t.printable())),
         }
     }
 
@@ -105,7 +138,7 @@ impl<'a> Parser<'a> {
                 Ok(Lambda::new(first, rest.collect()).to_expr())
             }
             Expr::EmptyList => Err(arg_err()),
-            _ => Err(EvalErr::UnexpectedToken("lambda".to_string())),
+            t => Err(EvalErr::UnexpectedToken(t.printable())),
         }
     }
 
@@ -117,7 +150,7 @@ impl<'a> Parser<'a> {
                 Ok(Define::new(first, rest.collect()).to_expr())
             }
             Expr::EmptyList => Err(arg_err()),
-            _ => Err(EvalErr::UnexpectedToken("define".to_string())),
+            t => Err(EvalErr::UnexpectedToken(t.printable())),
         }
     }
 
@@ -129,7 +162,7 @@ impl<'a> Parser<'a> {
                 Ok(Assignment::new(first, rest.collect()).to_expr())
             }
             Expr::EmptyList => Err(arg_err()),
-            _ => Err(EvalErr::UnexpectedToken("set!".to_string())),
+            t => Err(EvalErr::UnexpectedToken(t.printable())),
         }
     }
 
@@ -138,7 +171,7 @@ impl<'a> Parser<'a> {
         match self.parse_inner_list()? {
             Expr::List(rest) => Ok(And::new(rest).to_expr()),
             Expr::EmptyList => Err(arg_err()),
-            _ => Err(EvalErr::UnexpectedToken("and".to_string())),
+            t => Err(EvalErr::UnexpectedToken(t.printable())),
         }
     }
 
@@ -147,13 +180,16 @@ impl<'a> Parser<'a> {
         match self.parse_inner_list()? {
             Expr::List(rest) => Ok(Or::new(rest).to_expr()),
             Expr::EmptyList => Err(arg_err()),
-            _ => Err(EvalErr::UnexpectedToken("or".to_string())),
+            t => Err(EvalErr::UnexpectedToken(t.printable())),
         }
     }
 
     // We treat a quoted expression as a normal expression behind an extra indrection, with the
     // addtional major differnce being we parse lists as pairs instead of vectors. this way they
     // can be accessed at runtime rather than evaluated as procedures.
+    //
+    // TODO: we might consider parsing this in the same way we do non-quoted tokens, but this is a
+    // bit more lenient as any token is valid (besides the hanging closing paren).
     fn parse_quote(&mut self) -> Result<Expr, EvalErr> {
         let res = match self.next_or_err(EvalErr::UnexpectedEnd)? {
             Token::LParen => {
@@ -161,18 +197,22 @@ impl<'a> Parser<'a> {
                 self.tokens.next(); // consume remaining paren
                 Ok(res)
             }
-            Token::If => Ok("if".to_expr()),
-            Token::Lambda => Ok("lambda".to_expr()),
-            Token::Define => Ok("define".to_expr()),
-            Token::Assignment => Ok("set!".to_expr()),
-            Token::And => Ok("and".to_expr()),
-            Token::Or => Ok("or".to_expr()),
-            Token::Quote => self.parse_quote(),
+            t @ Token::Assignment
+            | t @ Token::Lambda
+            | t @ Token::Define
+            | t @ Token::If
+            | t @ Token::And
+            | t @ Token::QuoteTick
+            | t @ Token::QuoteProc
+            | t @ Token::Or => Ok(t.printable().to_expr()),
+            // TODO: I'm pretty sure we hanlde nested quoted exprs in this way but double check
+            // Token::QuoteTick => self.parse_quote(),
+            // Token::QuoteProc => self.parse_quote(),
             x @ Token::Number(_)
             | x @ Token::Str(_)
             | x @ Token::Boolean(_)
             | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
-            Token::RParen => Err(EvalErr::UnexpectedToken(")".to_string())),
+            p @ Token::RParen => Err(EvalErr::UnexpectedToken(p.printable())),
         }?;
 
         Ok(Expr::Quoted(Box::new(res)))
@@ -195,6 +235,16 @@ impl<'a> Parser<'a> {
 
     fn next_or_err(&mut self, err: EvalErr) -> Result<Token, EvalErr> {
         self.tokens.next().map_or_else(|| Err(err), Ok)?
+    }
+
+    fn peek_or_err(&mut self, err: EvalErr) -> Result<&Token, EvalErr> {
+        self.tokens.peek().map_or_else(
+            || Err(err),
+            |t| match t {
+                Ok(t) => Ok(t),
+                Err(e) => Err(e.clone()),
+            },
+        )
     }
 }
 
@@ -223,7 +273,21 @@ mod test {
 
     #[test]
     fn quoted() {
-        let scm = "'(+ 1 )";
+        let scm = "'(+ 1)";
+        let res: Vec<Expr> = vec![Expr::Quoted(Box::new(Expr::Dotted(Pair::new(
+            Expr::Quoted(Box::new(Expr::Atom(Token::Symbol("+".to_string())))),
+            Expr::Dotted(Pair::new(
+                Expr::Quoted(Box::new(Expr::Atom(Token::Number(1.0)))),
+                Expr::EmptyList,
+            )),
+        ))))];
+        let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
+        assert_eq!(res, exprs);
+    }
+
+    #[test]
+    fn quoted_fn() {
+        let scm = "(quote (+ 1))";
         let res: Vec<Expr> = vec![Expr::Quoted(Box::new(Expr::Dotted(Pair::new(
             Expr::Quoted(Box::new(Expr::Atom(Token::Symbol("+".to_string())))),
             Expr::Dotted(Pair::new(

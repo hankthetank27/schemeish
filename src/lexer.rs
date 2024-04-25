@@ -8,16 +8,17 @@ use crate::utils::SoftIter;
 pub enum Token {
     LParen,
     RParen,
-    Number(f64),
-    Boolean(bool),
-    Str(String),
     If,
     And,
     Or,
     Define,
     Lambda,
     Assignment,
-    Quote,
+    QuoteTick,
+    QuoteProc,
+    Number(f64),
+    Boolean(bool),
+    Str(String),
     Symbol(String),
 }
 
@@ -50,7 +51,7 @@ impl<'a> TokenStream<'a> {
             }
             '\'' => {
                 self.0.next();
-                Some(Ok(Token::Quote))
+                Some(Ok(Token::QuoteTick))
             }
             c if c.is_numeric() => Some(self.parse_number()),
             _ => Some(self.parse_symbol()),
@@ -81,6 +82,7 @@ impl<'a> TokenStream<'a> {
             .0
             .take_until(|c| !c.is_numeric() && !end_of_token(c))
             .collect();
+
         match self.0.peek() {
             Some(c) if c.is_numeric() => Err(EvalErr::MalformedToken(
                 "symbol cannot contain numeric values",
@@ -90,7 +92,7 @@ impl<'a> TokenStream<'a> {
                 "define" => Token::Define,
                 "lambda" => Token::Lambda,
                 "set!" => Token::Assignment,
-                "quote" => Token::Quote,
+                "quote" => Token::QuoteProc,
                 "and" => Token::And,
                 "or" => Token::Or,
                 _ => Token::Symbol(value),
