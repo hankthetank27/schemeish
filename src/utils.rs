@@ -18,7 +18,10 @@ pub trait IterInnerVal {
     fn into_strings(self) -> Result<Vec<String>, EvalErr>;
 }
 
-impl IterInnerVal for Vec<Expr> {
+impl<T> IterInnerVal for T
+where
+    T: IntoIterator<Item = Expr>,
+{
     fn into_nums(self) -> Result<Vec<f64>, EvalErr> {
         self.into_iter()
             .map(|expr| match expr {
@@ -38,14 +41,20 @@ impl IterInnerVal for Vec<Expr> {
     }
 }
 
-pub trait SoftIter<I: Iterator> {
+pub trait SoftIter<I>
+where
+    I: Iterator,
+{
     fn has_next(self) -> Option<Peekable<I>>;
     fn take_until<F>(&mut self, pred: F) -> IntoIter<I::Item>
     where
         F: Fn(&I::Item) -> bool;
 }
 
-impl<I: Iterator> SoftIter<I> for Peekable<I> {
+impl<I> SoftIter<I> for Peekable<I>
+where
+    I: Iterator,
+{
     fn has_next(mut self) -> Option<Peekable<I>> {
         self.peek().is_some().then_some(self)
     }
@@ -72,8 +81,6 @@ where
     fn get_one_and_rest_or_else(self, err: F) -> Result<(Expr, IntoIter<Expr>), EvalErr>;
 }
 
-// this is not the right error message
-// let err = || EvalErr::InvalidArgs("not enough arguments");
 impl<F> GetVals<F> for IntoIter<Expr>
 where
     F: Fn() -> EvalErr,

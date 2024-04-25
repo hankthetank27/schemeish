@@ -123,6 +123,7 @@ impl SpecialForm for Assignment {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         let mut body = self.body.into_iter();
         match self.identifier {
+            //bind var
             Expr::Atom(Token::Symbol(identifier)) => {
                 let value = body
                     .next()

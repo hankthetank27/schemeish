@@ -8,15 +8,15 @@ use crate::{
 };
 
 pub fn add(args: Args) -> Result<Expr, EvalErr> {
-    Ok(args.eval()?.into_nums()?.iter().sum::<f64>().to_expr())
+    Ok(args.into_nums()?.iter().sum::<f64>().to_expr())
 }
 
 pub fn multiply(args: Args) -> Result<Expr, EvalErr> {
-    Ok(args.eval()?.into_nums()?.iter().product::<f64>().to_expr())
+    Ok(args.into_nums()?.iter().product::<f64>().to_expr())
 }
 
 pub fn subtract(args: Args) -> Result<Expr, EvalErr> {
-    let mut nums = args.eval()?.into_nums()?.into_iter();
+    let mut nums = args.into_nums()?.into_iter();
     match nums.next() {
         Some(first) => Ok(nums.fold(first, |diff, num| diff - num).to_expr()),
         None => Err(EvalErr::InvalidArgs(
@@ -26,7 +26,7 @@ pub fn subtract(args: Args) -> Result<Expr, EvalErr> {
 }
 
 pub fn divide(args: Args) -> Result<Expr, EvalErr> {
-    let mut nums = args.eval()?.into_nums()?.into_iter();
+    let mut nums = args.into_nums()?.into_iter();
     match nums.next() {
         Some(first) => Ok(nums.fold(first, |quot, num| quot / num).to_expr()),
         None => Err(EvalErr::InvalidArgs(
@@ -36,7 +36,7 @@ pub fn divide(args: Args) -> Result<Expr, EvalErr> {
 }
 
 pub fn equality(args: Args) -> Result<Expr, EvalErr> {
-    let nums: Vec<f64> = args.eval()?.into_nums()?;
+    let nums: Vec<f64> = args.into_nums()?;
     match nums.first() {
         Some(first) => Ok(nums.iter().all(|num| num == first).to_expr()),
         None => Err(EvalErr::InvalidArgs(
@@ -65,7 +65,7 @@ fn cmp_first_to_rest<F>(args: Args, cmp: F) -> Result<Expr, EvalErr>
 where
     F: Fn(f64, f64) -> bool,
 {
-    let mut nums = args.eval()?.into_nums()?.into_iter().peekable();
+    let mut nums = args.into_nums()?.into_iter().peekable();
     let err = EvalErr::InvalidArgs("Procedure requires at least two arguments");
     match nums.next() {
         Some(first) => {

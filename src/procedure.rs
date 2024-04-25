@@ -44,7 +44,7 @@ impl Compound {
         Proc::Compound(Compound { body, params, env })
     }
 
-    pub fn call(self, args: Vec<Expr>) -> Result<Expr, EvalErr> {
+    pub fn call(self, args: Args) -> Result<Expr, EvalErr> {
         if self.params.len() != args.len() {
             return Err(EvalErr::InvalidArgs(
                 "amount of args does not match function pararms",

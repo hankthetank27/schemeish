@@ -8,7 +8,6 @@ use crate::{
 
 pub fn equal(args: Args) -> Result<Expr, EvalErr> {
     let first_two = args
-        .eval()?
         .into_iter()
         .get_two_or_else(|| EvalErr::InvalidArgs("'equal?'. expected two arguments."))?;
 

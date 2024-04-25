@@ -25,7 +25,7 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
                 Expr::Or(or_x) => or_x.eval(env),
                 Expr::List(_) => apply(op, args),
                 Expr::Atom(Token::Symbol(_)) => apply(op, args),
-                op => Err(EvalErr::TypeError(("procedure", op))),
+                op => Err(EvalErr::TypeError(("procedure or special form", op))),
             }
         }
         // self evaluating
@@ -38,9 +38,7 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
 pub fn apply(op: Expr, args: Args) -> Result<Expr, EvalErr> {
     match eval(op, &args.env())? {
         Expr::Proc(proc) => match proc {
-            // TODO we want to make args eval to another instance of args so we can just call it once
-            // here instead of in each primitive function
-            Proc::Primitive(proc) => proc.call(args),
+            Proc::Primitive(proc) => proc.call(args.eval()?),
             Proc::Compound(proc) => proc.call(args.eval()?),
         },
         op => Err(EvalErr::TypeError(("procedure", op))),
@@ -60,15 +58,23 @@ impl Args {
         }
     }
 
-    pub fn eval(self) -> Result<Vec<Expr>, EvalErr> {
-        self.args
+    pub fn eval(mut self) -> Result<Args, EvalErr> {
+        let evaled = self
+            .args
             .into_iter()
             .map(|expr| eval(expr, &self.env))
-            .collect()
+            .collect::<Result<Vec<Expr>, EvalErr>>()?;
+
+        self.args = evaled;
+        Ok(self)
     }
 
     pub fn env(&self) -> EnvRef {
         self.env.clone_rc()
+    }
+
+    pub fn len(&self) -> usize {
+        self.args.len()
     }
 }
 
