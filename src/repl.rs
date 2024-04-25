@@ -28,7 +28,15 @@ impl Repl {
             let mut exprs = String::new();
 
             if io::stdin().read_line(&mut exprs).is_ok() {
-                let exprs = match Parser::new(TokenStream::new(&exprs)).parse() {
+                let tokens = match TokenStream::new(&exprs).collect_tokens() {
+                    Ok(x) => x,
+                    Err(err) => {
+                        eprintln!("{err}");
+                        continue;
+                    }
+                };
+
+                let exprs = match Parser::new(tokens).parse() {
                     Ok(x) => x,
                     Err(err) => {
                         eprintln!("{err}");

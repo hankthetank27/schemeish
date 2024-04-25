@@ -29,12 +29,17 @@ fn main() {
 }
 
 fn run_from_file(file: &str) {
-    let exprs = Parser::new(TokenStream::new(file))
-        .parse()
+    let tokens = TokenStream::new(file)
+        .collect_tokens()
         .unwrap_or_else(|err| {
             eprintln!("{err}");
             process::exit(1);
         });
+
+    let exprs = Parser::new(tokens).parse().unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
 
     let global = EnvRef::global();
     for exp in exprs.into_iter() {
@@ -73,7 +78,9 @@ mod test {
     use super::*;
 
     fn eval_test(scm: &str) -> Vec<Expr> {
-        let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
+        let exprs = Parser::new(TokenStream::new(scm).collect_tokens().unwrap())
+            .parse()
+            .unwrap();
         let global = EnvRef::global();
         exprs
             .into_iter()
@@ -82,7 +89,9 @@ mod test {
     }
 
     fn eval_err_test(scm: &str) -> Vec<Result<Expr, EvalErr>> {
-        let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
+        let exprs = Parser::new(TokenStream::new(scm).collect_tokens().unwrap())
+            .parse()
+            .unwrap();
         let global = EnvRef::global();
         exprs
             .into_iter()

@@ -1,7 +1,8 @@
 use std::iter::Peekable;
+use std::vec::IntoIter;
 
 use crate::error::EvalErr;
-use crate::lexer::{Token, TokenStream};
+use crate::lexer::Token;
 use crate::primitives::pair::Pair;
 use crate::print::Printable;
 use crate::procedure::Proc;
@@ -32,15 +33,15 @@ impl Expr {
     }
 }
 
-pub struct Parser<'a> {
-    tokens: Peekable<TokenStream<'a>>,
+pub struct Parser {
+    tokens: Peekable<IntoIter<Token>>,
     parsed_exprs: Vec<Expr>,
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(tokens: TokenStream<'a>) -> Self {
+impl Parser {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Parser {
-            tokens: tokens.peekable(),
+            tokens: tokens.into_iter().peekable(),
             parsed_exprs: vec![],
         }
     }
@@ -103,14 +104,15 @@ impl<'a> Parser<'a> {
     fn parse_inner_list(&mut self) -> Result<Expr, EvalErr> {
         let mut parsed_exprs: Vec<Expr> = vec![];
         while let Some(t) = self.tokens.peek() {
-            if let Ok(Token::RParen) = t {
-                self.tokens.next();
-                match parsed_exprs.len() {
-                    0 => return Ok(Expr::EmptyList),
-                    _ => return Ok(Expr::List(parsed_exprs)),
+            match t {
+                Token::RParen => {
+                    self.tokens.next();
+                    match parsed_exprs.len() {
+                        0 => return Ok(Expr::EmptyList),
+                        _ => return Ok(Expr::List(parsed_exprs)),
+                    }
                 }
-            } else {
-                parsed_exprs.push(self.parse_from_token()?)
+                _ => parsed_exprs.push(self.parse_from_token()?),
             }
         }
         Err(EvalErr::UnexpectedEnd)
@@ -221,36 +223,30 @@ impl<'a> Parser<'a> {
     fn parse_inner_quote(&mut self) -> Result<Expr, EvalErr> {
         match self.tokens.peek() {
             Some(t) => match t {
-                Ok(Token::RParen) => Ok(Expr::EmptyList),
-                Ok(_) => {
+                Token::RParen => Ok(Expr::EmptyList),
+                _ => {
                     let current = self.parse_quote()?;
                     let next = self.parse_inner_quote()?;
                     Ok(Expr::Dotted(Pair::new(current, next)))
                 }
-                Err(x) => Err(x.to_owned()),
             },
             None => Err(EvalErr::UnexpectedEnd),
         }
     }
 
     fn next_or_err(&mut self, err: EvalErr) -> Result<Token, EvalErr> {
-        self.tokens.next().map_or_else(|| Err(err), Ok)?
+        self.tokens.next().map_or_else(|| Err(err), Ok)
     }
 
     fn peek_or_err(&mut self, err: EvalErr) -> Result<&Token, EvalErr> {
-        self.tokens.peek().map_or_else(
-            || Err(err),
-            |t| match t {
-                Ok(t) => Ok(t),
-                Err(e) => Err(e.clone()),
-            },
-        )
+        self.tokens.peek().map_or_else(|| Err(err), Ok)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::lexer::TokenStream;
 
     #[test]
     fn valid_parse() {
@@ -267,7 +263,8 @@ mod test {
                 ]),
             ]),
         ];
-        let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
+        let tokens = TokenStream::new(scm).collect_tokens().unwrap();
+        let exprs = Parser::new(tokens).parse().unwrap();
         assert_eq!(res, exprs);
     }
 
@@ -281,7 +278,8 @@ mod test {
                 Expr::EmptyList,
             )),
         ))))];
-        let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
+        let tokens = TokenStream::new(scm).collect_tokens().unwrap();
+        let exprs = Parser::new(tokens).parse().unwrap();
         assert_eq!(res, exprs);
     }
 
@@ -295,7 +293,8 @@ mod test {
                 Expr::EmptyList,
             )),
         ))))];
-        let exprs = Parser::new(TokenStream::new(scm)).parse().unwrap();
+        let tokens = TokenStream::new(scm).collect_tokens().unwrap();
+        let exprs = Parser::new(tokens).parse().unwrap();
         assert_eq!(res, exprs);
     }
 
@@ -303,20 +302,23 @@ mod test {
     #[should_panic]
     fn extra_paren() {
         let scm = "(+ 1 2) (1))";
-        Parser::new(TokenStream::new(scm)).parse().unwrap();
+        let tokens = TokenStream::new(scm).collect_tokens().unwrap();
+        Parser::new(tokens).parse().unwrap();
     }
 
     #[test]
     #[should_panic]
     fn opening_rparen() {
         let scm = ")(yo)";
-        Parser::new(TokenStream::new(scm)).parse().unwrap();
+        let tokens = TokenStream::new(scm).collect_tokens().unwrap();
+        Parser::new(tokens).parse().unwrap();
     }
 
     #[test]
     #[should_panic]
     fn no_close() {
         let scm = "(+ 1 (1)";
-        Parser::new(TokenStream::new(scm)).parse().unwrap();
+        let tokens = TokenStream::new(scm).collect_tokens().unwrap();
+        Parser::new(tokens).parse().unwrap();
     }
 }

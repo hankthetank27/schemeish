@@ -31,6 +31,21 @@ impl<'a> TokenStream<'a> {
         TokenStream(input.chars().peekable())
     }
 
+    pub fn collect_tokens(self) -> Result<Vec<Token>, EvalErr> {
+        let (tokens, errors) = self.fold((vec![], vec![]), |(mut tokens, mut errs), token| {
+            match token {
+                Ok(t) => tokens.push(t),
+                Err(e) => errs.push(e),
+            };
+            (tokens, errs)
+        });
+
+        match errors.len() {
+            0 => Ok(tokens),
+            _ => Err(EvalErr::LexingFailures(errors)),
+        }
+    }
+
     fn parse_token(&mut self) -> Option<TokenRes<Token>> {
         match self.advance_to_token()?.peek()? {
             '(' => {
@@ -84,9 +99,12 @@ impl<'a> TokenStream<'a> {
             .collect();
 
         match self.0.peek() {
-            Some(c) if c.is_numeric() => Err(EvalErr::MalformedToken(
-                "symbol cannot contain numeric values",
-            )),
+            Some(c) if c.is_numeric() => {
+                self.0.next();
+                Err(EvalErr::MalformedToken(
+                    "symbol cannot contain numeric values",
+                ))
+            }
             _ => Ok(match value.as_str() {
                 "if" => Token::If,
                 "define" => Token::Define,

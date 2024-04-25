@@ -34,6 +34,29 @@ impl Pair {
     }
 }
 
+//TODO: this needs work but is fine for now. its just for printing.
+impl Iterator for Pair {
+    type Item = Expr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.clone().car();
+        match self.clone().cdr() {
+            Expr::Dotted(next) => {
+                self.car = next.clone().car;
+                self.cdr = next.cdr;
+            }
+            x => {
+                self.car = Box::new(x);
+                self.cdr = Box::new(Expr::EmptyList);
+            }
+        };
+        match current {
+            Expr::EmptyList => None,
+            x => Some(x),
+        }
+    }
+}
+
 pub fn cons(args: Args) -> Result<Expr, EvalErr> {
     let (first, second) = args
         .into_iter()

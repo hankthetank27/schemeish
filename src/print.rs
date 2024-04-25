@@ -1,4 +1,4 @@
-use crate::{lexer::Token, parser::Expr, procedure::Proc};
+use crate::{lexer::Token, parser::Expr, primitives::pair::Pair, procedure::Proc};
 
 pub trait Print<T> {
     fn print(&self);
@@ -42,7 +42,7 @@ impl Printable for Proc {
     fn printable(&self) -> String {
         match self {
             Proc::Primitive(p) => format!("#<primitive-{:?}>", p.inner()),
-            Proc::Compound(p) => format!("#<closure-(#f{:?})>", p.to_owned().params()),
+            Proc::Compound(p) => format!("#<closure-(#f{})>", p.to_owned().params().printable()),
         }
     }
 }
@@ -52,10 +52,43 @@ impl Printable for Expr {
         match self {
             Expr::Atom(a) => a.printable(),
             Expr::Proc(p) => p.printable(),
+            Expr::List(l) => l.printable(),
+            Expr::Dotted(p) => p.printable(),
+            Expr::Quoted(q) => (*q).printable(),
             x => format!("{:?}", x),
         }
     }
 }
-// impl<T> Print for Vec<T> {
-//     fn print(&self) -> String {}
-// }
+
+impl Printable for Vec<Expr> {
+    fn printable(&self) -> String {
+        let ls = self
+            .iter()
+            .map(|e| e.printable())
+            .reduce(|curr, next| format!("{} {}", curr, next))
+            .unwrap();
+        format!("'({})", ls)
+    }
+}
+
+impl Printable for Vec<String> {
+    fn printable(&self) -> String {
+        let ls = self
+            .iter()
+            .map(|e| e.to_string())
+            .reduce(|curr, next| format!("{} {}", curr, next))
+            .unwrap();
+        format!("'({})", ls)
+    }
+}
+
+impl Printable for Pair {
+    fn printable(&self) -> String {
+        let ls = self
+            .clone()
+            .map(|e| e.printable())
+            .reduce(|curr, next| format!("{} {}", curr, next))
+            .unwrap();
+        format!("'({})", ls)
+    }
+}
