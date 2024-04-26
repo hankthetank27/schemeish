@@ -1,9 +1,13 @@
+use std::iter::Peekable;
+use std::vec::IntoIter;
+
 use crate::{
     enviroment::EnvRef,
     error::EvalErr,
     evaluator::eval,
     lexer::Token,
     parser::Expr,
+    print::Printable,
     procedure::Compound,
     utils::{GetVals, IterInnerVal, ToExpr},
 };
@@ -44,8 +48,8 @@ impl SpecialForm for Define {
 
                 match first {
                     Expr::Atom(Token::Symbol(identifier)) => {
-                        let lamba = Lambda::new(Expr::List(rest.collect()), body.collect());
-                        env.insert_val(identifier.to_string(), lamba.eval(env)?)
+                        let lambda = Lambda::new(Expr::List(rest.collect()), body.collect());
+                        env.insert_val(identifier.to_string(), lambda.eval(env)?)
                     }
                     _ => Err(EvalErr::InvalidArgs("expected identifier for procedure")),
                 }
@@ -108,6 +112,53 @@ impl SpecialForm for If {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Cond {
+    clauses: Vec<Expr>,
+}
+
+impl Cond {
+    pub fn new(clauses: Vec<Expr>) -> Self {
+        Cond { clauses }
+    }
+}
+
+impl SpecialForm for Cond {
+    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        eval(
+            cond_to_if(&mut self.clauses.into_iter().peekable(), env)?,
+            env,
+        )
+    }
+}
+
+fn cond_to_if(exprs: &mut Peekable<IntoIter<Expr>>, env: &EnvRef) -> Result<Expr, EvalErr> {
+    match exprs.next() {
+        Some(expr) => match expr {
+            Expr::List(expr) => {
+                let (predicate, consequence) = expr.into_iter().get_two_or_else(|| {
+                    EvalErr::InvalidArgs("'cond'. clauses expcted two be lists of two values")
+                })?;
+
+                if exprs.peek().is_some() {
+                    If::new(predicate, consequence, cond_to_if(exprs, env)?)
+                        .to_expr()
+                        .as_list()
+                } else {
+                    match predicate {
+                        Expr::Atom(Token::Else) => Ok(consequence),
+                        _ => If::new(predicate, consequence, cond_to_if(exprs, env)?)
+                            .to_expr()
+                            .as_list(),
+                    }
+                }
+            }
+            expr => Err(EvalErr::UnexpectedToken(expr.printable())),
+        },
+        None => Ok(Expr::EmptyList),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Assignment {
     identifier: Expr,
     body: Vec<Expr>,
@@ -131,7 +182,7 @@ impl SpecialForm for Assignment {
 
                 env.update_val(identifier.to_string(), eval(value, env)?)
             }
-            x => Err(EvalErr::TypeError(("symbol", x))),
+            expr => Err(EvalErr::TypeError(("symbol", expr))),
         }
     }
 }
@@ -158,7 +209,7 @@ impl SpecialForm for And {
                         Ok(())
                     }
                 }
-                x => Err(EvalErr::TypeError(("boolean", x))),
+                expr => Err(EvalErr::TypeError(("boolean", expr))),
             }?;
         }
         Ok(true.to_expr())
@@ -187,7 +238,7 @@ impl SpecialForm for Or {
                         Ok(())
                     }
                 }
-                x => Err(EvalErr::TypeError(("boolean", x))),
+                expr => Err(EvalErr::TypeError(("boolean", expr))),
             }?;
         }
         Ok(false.to_expr())

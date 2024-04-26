@@ -18,6 +18,7 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
 
             match op {
                 Expr::If(if_x) => if_x.eval(env),
+                Expr::Cond(cond_x) => cond_x.eval(env),
                 Expr::Define(def_x) => def_x.eval(env),
                 Expr::Assignment(ass_x) => ass_x.eval(env),
                 Expr::And(and_x) => and_x.eval(env),

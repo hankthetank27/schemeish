@@ -70,8 +70,7 @@ mod test {
     use schemeish::{
         error::EvalErr,
         lexer::Token::{Boolean, Number},
-        parser::Expr,
-        parser::Expr::{Atom, Dotted, EmptyList},
+        parser::Expr::{self, Atom, Dotted, EmptyList},
         primitives::pair::Pair,
     };
 
@@ -117,7 +116,7 @@ mod test {
                 10
                 20))
             (test-if 1 2)
-            (test-if 1 1) ";
+            (test-if 1 1)";
 
         let evalulated = eval_test(scm);
         let res1 = evalulated.get(1).unwrap().to_owned();
@@ -133,7 +132,7 @@ mod test {
                 (lambda (y)
                   (+ x y)))
               3)
-             4) ";
+             4)";
 
         let evalulated = eval_test(scm);
         let res = evalulated.get(0).unwrap().to_owned();
@@ -168,7 +167,7 @@ mod test {
               (define (id x) x)
               (define (inc x) (+ x 1))
               (product id 1 inc x))
-            (factorial 10) ";
+            (factorial 10)";
 
         let evalulated = eval_test(scm);
         let res = evalulated.get(2).unwrap().to_owned();
@@ -195,7 +194,7 @@ mod test {
         let scm = "
             (define (map ls fn)
               (if (null? ls)
-                ()
+                '()
                 (cons (fn (car ls))
                       (map (cdr ls) fn))))
 
@@ -272,6 +271,60 @@ mod test {
     }
 
     #[test]
+    fn cond_t() {
+        let scm = "(cond (#t 1))";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        assert_eq!(res, Atom(Number(1.0)));
+    }
+
+    #[test]
+    fn cond_f() {
+        let scm = "(cond (#f 1))";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        assert_eq!(res, EmptyList);
+    }
+
+    #[test]
+    fn else_ls() {
+        let scm = "(cond (#f 1) (#f 3) (else (list 1)))";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        assert_eq!(res, Dotted(Pair::new(Atom(Number(1.0)), EmptyList)));
+    }
+
+    #[test]
+    fn coin_combo() {
+        let scm = "(define (first-denomination coins)
+                      (car coins))
+                    (define (except-first-denomination coins)
+                      (cdr coins))
+                    (define (no-more? coins)
+                      (null? coins))
+
+                    (define (cc amount coin-values)
+                      (cond ((= amount 0) 1)
+                            ((or (< amount 0) (no-more? coin-values)) 0)
+                            (else
+                             (+ (cc amount
+                                    (except-first-denomination coin-values))
+                                (cc (- amount
+                                       (first-denomination coin-values))
+                                    coin-values)))))
+
+                    (define us-coins (list 25 10 5 1))
+                    (cc 45 us-coins)";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(5).unwrap().to_owned();
+        assert_eq!(res, Atom(Number(39.0)));
+    }
+
+    #[test]
     fn type_error() {
         let scm = "(define 1 2)";
 
@@ -301,6 +354,24 @@ mod test {
             Err(e) => {
                 let x = match e {
                     EvalErr::UnboundVar(_) => true,
+                    _ => false,
+                };
+                assert!(x)
+            }
+            Ok(e) => panic!("Expected error, got {:?}", e),
+        }
+    }
+
+    #[test]
+    fn missplaced_else() {
+        let scm = "(cond (#f 1) (else (list 1 2 3)) (#t 3))";
+
+        let evalulated = eval_err_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        match res {
+            Err(e) => {
+                let x = match e {
+                    EvalErr::TypeError(_) => true,
                     _ => false,
                 };
                 assert!(x)

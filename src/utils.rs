@@ -8,6 +8,7 @@ use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
 use crate::special_form::And;
 use crate::special_form::Assignment;
+use crate::special_form::Cond;
 use crate::special_form::Define;
 use crate::special_form::If;
 use crate::special_form::Lambda;
@@ -181,5 +182,11 @@ impl ToExpr for And {
 impl ToExpr for Or {
     fn to_expr(self) -> Expr {
         Expr::Or(self)
+    }
+}
+
+impl ToExpr for Cond {
+    fn to_expr(self) -> Expr {
+        Expr::Cond(self)
     }
 }

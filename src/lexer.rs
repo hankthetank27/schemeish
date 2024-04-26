@@ -13,6 +13,8 @@ pub enum Token {
     Or,
     Define,
     Lambda,
+    Cond,
+    Else,
     Assignment,
     QuoteTick,
     QuoteProc,
@@ -93,29 +95,20 @@ impl<'a> TokenStream<'a> {
     }
 
     fn parse_symbol(&mut self) -> TokenRes<Token> {
-        let value: String = self
-            .0
-            .take_until(|c| !c.is_numeric() && !end_of_token(c))
-            .collect();
+        let value: String = self.0.take_until(|c| !end_of_token(c)).collect();
 
-        match self.0.peek() {
-            Some(c) if c.is_numeric() => {
-                self.0.next();
-                Err(EvalErr::MalformedToken(
-                    "symbol cannot contain numeric values",
-                ))
-            }
-            _ => Ok(match value.as_str() {
-                "if" => Token::If,
-                "define" => Token::Define,
-                "lambda" => Token::Lambda,
-                "set!" => Token::Assignment,
-                "quote" => Token::QuoteProc,
-                "and" => Token::And,
-                "or" => Token::Or,
-                _ => Token::Symbol(value),
-            }),
-        }
+        Ok(match value.as_str() {
+            "if" => Token::If,
+            "define" => Token::Define,
+            "lambda" => Token::Lambda,
+            "set!" => Token::Assignment,
+            "quote" => Token::QuoteProc,
+            "and" => Token::And,
+            "or" => Token::Or,
+            "cond" => Token::Cond,
+            "else" => Token::Else,
+            _ => Token::Symbol(value),
+        })
     }
 
     fn parse_number(&mut self) -> TokenRes<Token> {
@@ -124,6 +117,7 @@ impl<'a> TokenStream<'a> {
             .0
             .take_until(|c| c.is_numeric() && !end_of_token(c))
             .collect();
+
         match self.0.peek() {
             Some(c) if !c.is_numeric() && !end_of_token(c) => Err(err),
             _ => Ok(Token::Number(value.parse().map_err(|_| err)?)),
@@ -238,13 +232,6 @@ mod test {
     #[should_panic]
     fn parse_num_failure() {
         let scm = "5d";
-        tokenize(&scm).unwrap();
-    }
-
-    #[test]
-    #[should_panic]
-    fn parse_symbol_failure() {
-        let scm = "pr0c";
         tokenize(&scm).unwrap();
     }
 

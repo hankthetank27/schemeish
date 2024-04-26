@@ -6,7 +6,7 @@ use crate::lexer::Token;
 use crate::primitives::pair::Pair;
 use crate::print::Printable;
 use crate::procedure::Proc;
-use crate::special_form::{And, Assignment, Define, If, Lambda, Or};
+use crate::special_form::{And, Assignment, Cond, Define, If, Lambda, Or};
 use crate::utils::{GetVals, ToExpr};
 
 // We treat any list that is expected to be evaluated as a procedure during parsing as a vector
@@ -21,6 +21,7 @@ pub enum Expr {
     Define(Box<Define>),
     Lambda(Box<Lambda>),
     Assignment(Box<Assignment>),
+    Cond(Cond),
     And(And),
     Or(Or),
     Quoted(Box<Expr>),
@@ -28,8 +29,15 @@ pub enum Expr {
 }
 
 impl Expr {
-    fn as_list(self) -> Result<Expr, EvalErr> {
+    pub fn as_list(self) -> Result<Expr, EvalErr> {
         Ok(Expr::List(vec![self]))
+    }
+
+    fn is_valid_single(self) -> Result<Expr, EvalErr> {
+        match self {
+            f @ Expr::Atom(Token::Else) => Err(EvalErr::UnexpectedToken(f.printable())),
+            t => Ok(t),
+        }
     }
 }
 
@@ -48,7 +56,7 @@ impl Parser {
 
     pub fn parse(mut self) -> Result<Vec<Expr>, EvalErr> {
         while self.tokens.peek().is_some() {
-            let expr = self.parse_from_token()?;
+            let expr = self.parse_from_token()?.is_valid_single()?;
             self.parsed_exprs.push(expr)
         }
         Ok(self.parsed_exprs)
@@ -81,6 +89,10 @@ impl Parser {
                     self.tokens.next();
                     self.parse_or()?.as_list()
                 }
+                Token::Cond => {
+                    self.tokens.next();
+                    self.parse_cond()?.as_list()
+                }
                 Token::QuoteProc => {
                     self.tokens.next();
                     let quoted = self.parse_quote();
@@ -93,6 +105,7 @@ impl Parser {
             x @ Token::Number(_)
             | x @ Token::Str(_)
             | x @ Token::Boolean(_)
+            | x @ Token::Else
             | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
             // TODO: we may want to handle below as a special case? seems fine with a
             // generic UnexpectedToken error though.
@@ -127,6 +140,15 @@ impl Parser {
                 let (p, c, a) = rest.into_iter().get_three_or_else(arg_err)?;
                 Ok(If::new(p, c, a).to_expr())
             }
+            Expr::EmptyList => Err(arg_err()),
+            t => Err(EvalErr::UnexpectedToken(t.printable())),
+        }
+    }
+
+    fn parse_cond(&mut self) -> Result<Expr, EvalErr> {
+        let arg_err = || EvalErr::InvalidArgs("'cond' expression. expected clauses.");
+        match self.parse_inner_list()? {
+            Expr::List(ls) => Ok(Cond::new(ls).to_expr()),
             Expr::EmptyList => Err(arg_err()),
             t => Err(EvalErr::UnexpectedToken(t.printable())),
         }
@@ -204,8 +226,10 @@ impl Parser {
             | t @ Token::Define
             | t @ Token::If
             | t @ Token::And
+            | t @ Token::Cond
             | t @ Token::QuoteTick
             | t @ Token::QuoteProc
+            | t @ Token::Else
             | t @ Token::Or => Ok(t.printable().to_expr()),
             // TODO: I'm pretty sure we hanlde nested quoted exprs in this way but double check
             // Token::QuoteTick => self.parse_quote(),
@@ -318,6 +342,14 @@ mod test {
     #[should_panic]
     fn no_close() {
         let scm = "(+ 1 (1)";
+        let tokens = TokenStream::new(scm).collect_tokens().unwrap();
+        Parser::new(tokens).parse().unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_else() {
+        let scm = "else";
         let tokens = TokenStream::new(scm).collect_tokens().unwrap();
         Parser::new(tokens).parse().unwrap();
     }
