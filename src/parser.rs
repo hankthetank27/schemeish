@@ -16,7 +16,7 @@ pub enum Expr {
     List(Vec<Expr>),
     Atom(Token),
     Proc(Proc),
-    Dotted(Pair),
+    Dotted(Box<Pair>),
     If(Box<If>),
     Define(Box<Define>),
     Lambda(Box<Lambda>),
@@ -29,7 +29,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn as_list(self) -> Result<Expr, EvalErr> {
+    pub fn into_list(self) -> Result<Expr, EvalErr> {
         Ok(Expr::List(vec![self]))
     }
 
@@ -67,31 +67,31 @@ impl Parser {
             Token::LParen => match self.peek_or_err(EvalErr::UnexpectedEnd)? {
                 Token::If => {
                     self.tokens.next();
-                    self.parse_if()?.as_list()
+                    self.parse_if()?.into_list()
                 }
                 Token::Lambda => {
                     self.tokens.next();
-                    self.parse_lambda()?.as_list()
+                    self.parse_lambda()?.into_list()
                 }
                 Token::Define => {
                     self.tokens.next();
-                    self.parse_define()?.as_list()
+                    self.parse_define()?.into_list()
                 }
                 Token::Assignment => {
                     self.tokens.next();
-                    self.parse_assignment()?.as_list()
+                    self.parse_assignment()?.into_list()
                 }
                 Token::And => {
                     self.tokens.next();
-                    self.parse_and()?.as_list()
+                    self.parse_and()?.into_list()
                 }
                 Token::Or => {
                     self.tokens.next();
-                    self.parse_or()?.as_list()
+                    self.parse_or()?.into_list()
                 }
                 Token::Cond => {
                     self.tokens.next();
-                    self.parse_cond()?.as_list()
+                    self.parse_cond()?.into_list()
                 }
                 Token::QuoteProc => {
                     self.tokens.next();
@@ -105,8 +105,8 @@ impl Parser {
             x @ Token::Number(_)
             | x @ Token::Str(_)
             | x @ Token::Boolean(_)
-            | x @ Token::Else
-            | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
+            | x @ Token::Symbol(_)
+            | x @ Token::Else => Ok(Expr::Atom(x)),
             // TODO: we may want to handle below as a special case? seems fine with a
             // generic UnexpectedToken error though.
             // p @ Token::RParen => Err(EvalErr::UnexpectedToken(p.printable())),

@@ -27,7 +27,7 @@ where
         self.into_iter()
             .map(|expr| match expr {
                 Expr::Atom(Token::Number(n)) => Ok(n),
-                _ => Err(EvalErr::TypeError(("number", expr))),
+                _ => Err(EvalErr::TypeError("number", expr)),
             })
             .collect()
     }
@@ -36,7 +36,7 @@ where
         self.into_iter()
             .map(|expr| match expr {
                 Expr::Atom(Token::Symbol(name)) => Ok(name.to_string()),
-                _ => Err(EvalErr::TypeError(("symbol", expr))),
+                _ => Err(EvalErr::TypeError("symbol", expr)),
             })
             .collect()
     }
@@ -145,7 +145,7 @@ impl ToExpr for Vec<Expr> {
 
 impl ToExpr for Pair {
     fn to_expr(self) -> Expr {
-        Expr::Dotted(self)
+        Expr::Dotted(Box::new(self))
     }
 }
 

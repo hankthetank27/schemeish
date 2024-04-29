@@ -9,7 +9,7 @@ pub enum EvalErr {
     InvalidExpr(Expr),
     UnboundVar(String),
     InvalidArgs(&'static str),
-    TypeError((&'static str, Expr)),
+    TypeError(&'static str, Expr),
     UnexpectedToken(String),
     MalformedToken(&'static str),
     LexingFailures(Vec<EvalErr>),
@@ -36,7 +36,7 @@ fn make_message(err: &EvalErr) -> String {
         EvalErr::NilEnv => "inserting value into empty enviroment".to_string(),
         EvalErr::MapAsRecoverable => "recoverable".to_string(),
         EvalErr::UnexpectedToken(msg) => format!("unexpected token {msg}"),
-        EvalErr::TypeError((expected, got)) => {
+        EvalErr::TypeError(expected, got) => {
             format!("expected {expected}, got {}", got.printable())
         }
         EvalErr::LexingFailures(errs) => {

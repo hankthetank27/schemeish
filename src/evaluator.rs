@@ -26,13 +26,13 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
                 Expr::Or(or_x) => or_x.eval(env),
                 Expr::List(_) => apply(op, args),
                 Expr::Atom(Token::Symbol(_)) => apply(op, args),
-                op => Err(EvalErr::TypeError(("procedure or special form", op))),
+                op => Err(EvalErr::TypeError("procedure or special form", op)),
             }
         }
         // self evaluating
         Expr::Quoted(x) => Ok(*x),
         x @ Expr::Atom(_) | x @ Expr::EmptyList => Ok(x),
-        x => Err(EvalErr::TypeError(("expression", x))),
+        x => Err(EvalErr::TypeError("expression", x)),
     }
 }
 
@@ -42,7 +42,7 @@ pub fn apply(op: Expr, args: Args) -> Result<Expr, EvalErr> {
             Proc::Primitive(proc) => proc.call(args.eval()?),
             Proc::Compound(proc) => proc.call(args.eval()?),
         },
-        op => Err(EvalErr::TypeError(("procedure", op))),
+        op => Err(EvalErr::TypeError("procedure", op)),
     }
 }
 

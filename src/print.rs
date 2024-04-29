@@ -87,7 +87,7 @@ impl Printable for Vec<String> {
 impl Printable for Pair {
     fn printable(&self) -> String {
         let ls = self
-            .clone()
+            .iter()
             .map(|e| e.printable())
             .reduce(|curr, next| format!("{} {}", curr, next))
             .unwrap();

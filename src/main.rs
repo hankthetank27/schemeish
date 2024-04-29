@@ -205,16 +205,16 @@ mod test {
         let res = evalulated.get(2).unwrap().to_owned();
         assert_eq!(
             res,
-            Dotted(Pair {
-                car: Box::new(Atom(Number(2.0))),
-                cdr: Box::new(Dotted(Pair {
-                    car: Box::new(Atom(Number(4.0))),
-                    cdr: Box::new(Dotted(Pair {
-                        car: Box::new(Atom(Number(6.0))),
-                        cdr: Box::new(EmptyList)
+            Dotted(Box::new(Pair {
+                car: Atom(Number(2.0)),
+                cdr: Dotted(Box::new(Pair {
+                    car: Atom(Number(4.0)),
+                    cdr: Dotted(Box::new(Pair {
+                        car: Atom(Number(6.0)),
+                        cdr: EmptyList
                     }))
                 }))
-            })
+            }))
         )
     }
 
@@ -333,7 +333,7 @@ mod test {
         match res {
             Err(e) => {
                 let x = match e {
-                    EvalErr::TypeError(_) => true,
+                    EvalErr::TypeError(_, _) => true,
                     _ => false,
                 };
                 assert!(x)
@@ -371,7 +371,7 @@ mod test {
         match res {
             Err(e) => {
                 let x = match e {
-                    EvalErr::TypeError(_) => true,
+                    EvalErr::TypeError(_, _) => true,
                     _ => false,
                 };
                 assert!(x)

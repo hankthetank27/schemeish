@@ -54,7 +54,7 @@ impl SpecialForm for Define {
                     _ => Err(EvalErr::InvalidArgs("expected identifier for procedure")),
                 }
             }
-            identifier => Err(EvalErr::TypeError(("symbol or list", identifier))),
+            identifier => Err(EvalErr::TypeError("symbol or list", identifier)),
         }
     }
 }
@@ -79,7 +79,7 @@ impl SpecialForm for Lambda {
                 Ok(Compound::new(self.body, proc_args, env.clone_rc()).to_expr())
             }
             Expr::EmptyList => Ok(Compound::new(self.body, vec![], env.clone_rc()).to_expr()),
-            first_expr => Err(EvalErr::TypeError(("list", first_expr))),
+            first_expr => Err(EvalErr::TypeError("list", first_expr)),
         }
     }
 }
@@ -106,7 +106,7 @@ impl SpecialForm for If {
         match eval(self.predicate, env)? {
             Expr::Atom(Token::Boolean(true)) => eval(self.consequence, env),
             Expr::Atom(Token::Boolean(false)) => eval(self.alternative, env),
-            pred => Err(EvalErr::TypeError(("bool", pred))),
+            pred => Err(EvalErr::TypeError("bool", pred)),
         }
     }
 }
@@ -142,13 +142,13 @@ fn cond_to_if(exprs: &mut Peekable<IntoIter<Expr>>, env: &EnvRef) -> Result<Expr
                 if exprs.peek().is_some() {
                     If::new(predicate, consequence, cond_to_if(exprs, env)?)
                         .to_expr()
-                        .as_list()
+                        .into_list()
                 } else {
                     match predicate {
                         Expr::Atom(Token::Else) => Ok(consequence),
                         _ => If::new(predicate, consequence, cond_to_if(exprs, env)?)
                             .to_expr()
-                            .as_list(),
+                            .into_list(),
                     }
                 }
             }
@@ -182,7 +182,7 @@ impl SpecialForm for Assignment {
 
                 env.update_val(identifier.to_string(), eval(value, env)?)
             }
-            expr => Err(EvalErr::TypeError(("symbol", expr))),
+            expr => Err(EvalErr::TypeError("symbol", expr)),
         }
     }
 }
@@ -202,14 +202,9 @@ impl SpecialForm for And {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         for expr in self.body.into_iter() {
             match eval(expr, env)? {
-                Expr::Atom(Token::Boolean(n)) => {
-                    if !n {
-                        return Ok(n.to_expr());
-                    } else {
-                        Ok(())
-                    }
-                }
-                expr => Err(EvalErr::TypeError(("boolean", expr))),
+                Expr::Atom(Token::Boolean(n)) if !n => return Ok(n.to_expr()),
+                Expr::Atom(Token::Boolean(n)) if n => Ok(()),
+                expr => Err(EvalErr::TypeError("boolean", expr)),
             }?;
         }
         Ok(true.to_expr())
@@ -231,14 +226,9 @@ impl SpecialForm for Or {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         for expr in self.body.into_iter() {
             match eval(expr, env)? {
-                Expr::Atom(Token::Boolean(n)) => {
-                    if n {
-                        return Ok(n.to_expr());
-                    } else {
-                        Ok(())
-                    }
-                }
-                expr => Err(EvalErr::TypeError(("boolean", expr))),
+                Expr::Atom(Token::Boolean(n)) if n => return Ok(n.to_expr()),
+                Expr::Atom(Token::Boolean(n)) if !n => Ok(()),
+                expr => Err(EvalErr::TypeError("boolean", expr)),
             }?;
         }
         Ok(false.to_expr())

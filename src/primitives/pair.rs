@@ -1,8 +1,10 @@
 // use core::cell::RefCell;
 // use std::rc::Rc;
+//
+use std::mem;
+use std::vec;
 
 use core::iter::Peekable;
-use std::vec::IntoIter;
 
 use crate::error::EvalErr;
 use crate::evaluator::Args;
@@ -13,47 +15,78 @@ use crate::utils::{GetVals, ToExpr};
 pub struct Pair {
     // car: Rc<RefCell<Expr>>,
     // cdr: Rc<RefCell<Expr>>,
-    pub car: Box<Expr>,
-    pub cdr: Box<Expr>,
+    pub car: Expr,
+    pub cdr: Expr,
 }
 
 impl Pair {
-    pub fn new(car: Expr, cdr: Expr) -> Pair {
-        Pair {
-            car: Box::new(car),
-            cdr: Box::new(cdr),
-        }
+    pub fn new(car: Expr, cdr: Expr) -> Box<Pair> {
+        Box::new(Pair { car, cdr })
     }
 
-    fn car(self) -> Expr {
-        *self.car
+    pub fn into_iter(self) -> IntoIter {
+        IntoIter(self)
     }
 
-    fn cdr(self) -> Expr {
-        *self.cdr
+    pub fn iter(&self) -> Iter {
+        Iter { next: Some(self) }
     }
-}
 
-//TODO: this needs work but is fine for now. its just for printing.
-impl Iterator for Pair {
-    type Item = Expr;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let current = self.clone().car();
-        match self.clone().cdr() {
+    fn pop(&mut self) -> Option<Expr> {
+        let current = mem::replace(&mut self.car, Expr::EmptyList);
+        let next = mem::replace(&mut self.cdr, Expr::EmptyList);
+        match next {
             Expr::Dotted(next) => {
-                self.car = next.clone().car;
+                self.car = next.car;
                 self.cdr = next.cdr;
             }
             x => {
-                self.car = Box::new(x);
-                self.cdr = Box::new(Expr::EmptyList);
+                self.car = x;
+                self.cdr = Expr::EmptyList;
             }
         };
         match current {
             Expr::EmptyList => None,
             x => Some(x),
         }
+    }
+
+    // fn into_list(self) -> Option<PairList> {
+    //     todo!()
+    // }
+}
+
+// struct PairList {
+//     car: Box<Expr>,
+//     cdr: Option<Box<PairList>>,
+// }
+
+pub struct Iter<'a> {
+    next: Option<&'a Pair>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a Expr;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.map(|next| {
+            match &next.cdr {
+                Expr::Dotted(next) => {
+                    self.next = Some(next);
+                }
+                _ => self.next = None,
+            };
+            &next.car
+        })
+    }
+}
+
+pub struct IntoIter(Pair);
+
+impl Iterator for IntoIter {
+    type Item = Expr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.pop()
     }
 }
 
@@ -71,9 +104,9 @@ pub fn car(args: Args) -> Result<Expr, EvalErr> {
         .get_one_or_else(|| EvalErr::InvalidArgs("'car'. expected argument"))?;
 
     match expr {
-        Expr::Dotted(p) => Ok(p.car()),
+        Expr::Dotted(p) => Ok(p.car),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access car of empty list")),
-        x => Err(EvalErr::TypeError(("pair", x))),
+        x => Err(EvalErr::TypeError("pair", x)),
     }
 }
 
@@ -83,14 +116,14 @@ pub fn cdr(args: Args) -> Result<Expr, EvalErr> {
         .get_one_or_else(|| EvalErr::InvalidArgs("'cdr'. expected argument"))?;
 
     match expr {
-        Expr::Dotted(p) => Ok(p.cdr()),
+        Expr::Dotted(p) => Ok(p.cdr),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access cdr of empty list")),
-        x => Err(EvalErr::TypeError(("pair", x))),
+        x => Err(EvalErr::TypeError("pair", x)),
     }
 }
 
 pub fn list(args: Args) -> Result<Expr, EvalErr> {
-    fn map_to_list(el: Expr, mut ls: Peekable<IntoIter<Expr>>) -> Expr {
+    fn map_to_list(el: Expr, mut ls: Peekable<vec::IntoIter<Expr>>) -> Expr {
         let next = match ls.peek() {
             Some(_) => map_to_list(ls.next().unwrap(), ls),
             None => Expr::EmptyList,
