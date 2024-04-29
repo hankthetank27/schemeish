@@ -1,4 +1,9 @@
-use crate::{lexer::Token, parser::Expr, primitives::pair::Pair, procedure::Proc};
+use crate::{
+    lexer::Token,
+    parser::Expr,
+    primitives::pair::{MaybeList, Pair},
+    procedure::Proc,
+};
 
 pub trait Print<T> {
     fn print(&self);
@@ -52,6 +57,7 @@ impl Printable for Proc {
 impl Printable for Expr {
     fn printable(&self) -> String {
         match self {
+            Expr::EmptyList => "'()".to_string(),
             Expr::Atom(a) => a.printable(),
             Expr::Proc(p) => p.printable(),
             Expr::List(l) => l.printable(),
@@ -86,11 +92,18 @@ impl Printable for Vec<String> {
 
 impl Printable for Pair {
     fn printable(&self) -> String {
-        let ls = self
-            .iter()
-            .map(|e| e.printable())
-            .reduce(|curr, next| format!("{} {}", curr, next))
-            .unwrap();
-        format!("'({})", ls)
+        match self.try_list() {
+            MaybeList::List(ls) => match ls {
+                Some(ls) => format!(
+                    "'({})",
+                    ls.iter()
+                        .map(|e| e.printable())
+                        .reduce(|curr, next| format!("{} {}", curr, next))
+                        .unwrap()
+                ),
+                None => Expr::EmptyList.printable(),
+            },
+            MaybeList::Pair(p) => format!("({} . {})", p.car.printable(), p.cdr.printable()),
+        }
     }
 }

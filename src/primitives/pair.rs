@@ -1,7 +1,3 @@
-// use core::cell::RefCell;
-// use std::rc::Rc;
-//
-use std::mem;
 use std::vec;
 
 use core::iter::Peekable;
@@ -13,8 +9,6 @@ use crate::utils::{GetVals, ToExpr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pair {
-    // car: Rc<RefCell<Expr>>,
-    // cdr: Rc<RefCell<Expr>>,
     pub car: Expr,
     pub cdr: Expr,
 }
@@ -24,69 +18,65 @@ impl Pair {
         Box::new(Pair { car, cdr })
     }
 
-    pub fn into_iter(self) -> IntoIter {
-        IntoIter(self)
+    // printing methods
+    pub fn try_list<'a>(&'a self) -> MaybeList<'a> {
+        match self.check_if_list() {
+            Some(ls) => MaybeList::List(ls),
+            None => MaybeList::Pair(self),
+        }
+    }
+
+    // ^^
+    fn check_if_list<'a>(&'a self) -> Option<PairList<'a>> {
+        match &self.cdr {
+            Expr::Dotted(next) => {
+                let cdr = next.check_if_list()?;
+                let node = Some(Box::new(Node::new(&self.car, cdr)));
+                Some(node)
+            }
+            Expr::EmptyList => {
+                let node = Some(Box::new(Node::new(&self.car, None)));
+                Some(node)
+            }
+            _ => None,
+        }
+    }
+}
+
+type PairList<'a> = Option<Box<Node<'a>>>;
+
+pub enum MaybeList<'a> {
+    List(PairList<'a>),
+    Pair(&'a Pair),
+}
+
+pub struct Node<'a> {
+    pub car: &'a Expr,
+    pub cdr: PairList<'a>,
+}
+
+impl<'a> Node<'a> {
+    fn new(car: &'a Expr, cdr: PairList<'a>) -> Self {
+        Node { car, cdr }
     }
 
     pub fn iter(&self) -> Iter {
         Iter { next: Some(self) }
     }
-
-    fn pop(&mut self) -> Option<Expr> {
-        let current = mem::replace(&mut self.car, Expr::EmptyList);
-        let next = mem::replace(&mut self.cdr, Expr::EmptyList);
-        match next {
-            Expr::Dotted(next) => {
-                self.car = next.car;
-                self.cdr = next.cdr;
-            }
-            x => {
-                self.car = x;
-                self.cdr = Expr::EmptyList;
-            }
-        };
-        match current {
-            Expr::EmptyList => None,
-            x => Some(x),
-        }
-    }
-
-    // fn into_list(self) -> Option<PairList> {
-    //     todo!()
-    // }
 }
 
-// struct PairList {
-//     car: Box<Expr>,
-//     cdr: Option<Box<PairList>>,
-// }
-
 pub struct Iter<'a> {
-    next: Option<&'a Pair>,
+    next: Option<&'a Node<'a>>,
 }
 
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Expr;
+
     fn next(&mut self) -> Option<Self::Item> {
         self.next.map(|next| {
-            match &next.cdr {
-                Expr::Dotted(next) => {
-                    self.next = Some(next);
-                }
-                _ => self.next = None,
-            };
-            &next.car
+            self.next = next.cdr.as_deref();
+            next.car
         })
-    }
-}
-
-pub struct IntoIter(Pair);
-
-impl Iterator for IntoIter {
-    type Item = Expr;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.pop()
     }
 }
 
