@@ -1,3 +1,4 @@
+use core::cell::Ref;
 use core::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -8,16 +9,22 @@ use crate::primitives::{io, numeric, pair, string};
 use crate::procedure::{PSig, Primitive};
 use crate::utils::ToExpr;
 
+type RcCellEnv = Option<Rc<RefCell<Env>>>;
+
 #[derive(Debug, Clone, PartialEq)]
-pub struct EnvRef(Rc<RefCell<Option<Env>>>);
+pub struct EnvRef(RcCellEnv);
 
 impl EnvRef {
     pub fn nil() -> EnvRef {
-        EnvRef(Rc::new(RefCell::new(None)))
+        EnvRef(None)
     }
 
     pub fn new(env: Env) -> EnvRef {
-        EnvRef(Rc::new(RefCell::new(Some(env))))
+        EnvRef(Some(Rc::new(RefCell::new(env))))
+    }
+
+    pub fn get_env(&self) -> RcCellEnv {
+        Some(Rc::clone(self.0.as_ref()?))
     }
 
     pub fn global() -> EnvRef {
@@ -25,33 +32,89 @@ impl EnvRef {
         install_primitives(global)
     }
 
-    pub fn clone_rc(&self) -> EnvRef {
-        EnvRef(Rc::clone(&self.0))
+    pub fn clone_rc(&self) -> Result<EnvRef, EvalErr> {
+        Ok(EnvRef(Some(Rc::clone(
+            self.0.as_ref().ok_or(EvalErr::NilEnv)?,
+        ))))
+    }
+
+    fn borrow_inner(&self) -> Result<Ref<Env>, EvalErr> {
+        Ok(self.0.as_ref().ok_or(EvalErr::NilEnv)?.borrow())
     }
 
     pub fn get_val(&self, name: &str) -> Result<Expr, EvalErr> {
         self.0
-            .borrow()
             .as_ref()
             .ok_or_else(|| EvalErr::UnboundVar(name.to_string()))?
+            .borrow()
             .get_val(name)
     }
 
     pub fn insert_val(&self, name: String, val: Expr) -> Result<Expr, EvalErr> {
-        self.0
+        Ok(self
+            .0
+            .as_ref()
+            .ok_or(EvalErr::NilEnv)?
             .borrow_mut()
-            .as_mut()
-            .ok_or(EvalErr::NilEnv)
-            .map(|env| env.insert_val(name, val))
+            .insert_val(name, val))
     }
 
     pub fn update_val(&self, name: String, val: Expr) -> Result<Expr, EvalErr> {
         self.0
+            .as_ref()
+            .ok_or_else(|| EvalErr::UnboundVar(name.to_string()))?
             .borrow_mut()
-            .as_mut()
-            .ok_or_else(|| EvalErr::UnboundVar(name.to_string()))
-            .map(|env| env.update_val(name, val))?
+            .update_val(name, val)
     }
+
+    pub fn lookup_raw_pointer(&self, name: String) -> Result<*mut Expr, EvalErr> {
+        match self
+            .borrow_inner()
+            .map_err(|_| EvalErr::UnboundVar(name.to_string()))?
+            .values
+            .get(&name)
+        {
+            Some(v) => Ok(v as *const Expr as *mut Expr),
+            None => self.borrow_inner()?.parent.lookup_raw_pointer(name),
+        }
+    }
+
+    // pub fn find_enclosing_env(&self, name: String) -> Result<Rc<RefCell<Env>>, EvalErr> {
+    //     let rc = self
+    //         .clone_inner()
+    //         .map_err(|_| EvalErr::UnboundVar(name.to_string()))?;
+
+    //     match rc.borrow().values.get(&name) {
+    //         Some(_) => Ok(rc),
+    //         None => self.borrow_inner()?.parent.find_enclosing_env(name),
+    //     }
+    // }
+
+    //pub fn mutate_list(&self, name: String, value: *mut Expr) -> Result<Expr, EvalErr> {
+    //    match self
+    //        .borrow_inner_mut()
+    //        .map_err(|_| EvalErr::UnboundVar(name.to_string()))?
+    //        .values
+    //        .get_mut(&name)
+    //    {
+    //        Some(v) => match v {
+    //            Expr::Dotted(p) => unsafe {
+    //                p.cdr = *value;
+    //                Ok(p.clone().to_expr())
+    //            },
+    //            //type error
+    //            _ => Err(EvalErr::UnboundVar(name.to_string())),
+    //        },
+    //        None => self.borrow_inner_mut()?.parent.mutate_list(name, value),
+    //    }
+    //}
+    // pub fn get_ref_val(&self, name: &str) -> Result<&Expr, EvalErr> {
+    //     self.0
+    //         .as_ref()
+    //         .ok_or_else(|| EvalErr::UnboundVar(name.to_string()))?
+    //         .borrow()
+    //         .get_ref_val(name)
+    // }
 }
 
 #[derive(Debug, Clone, PartialEq)]

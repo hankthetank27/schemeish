@@ -6,7 +6,7 @@ use crate::lexer::Token;
 use crate::primitives::pair::Pair;
 use crate::print::Printable;
 use crate::procedure::Proc;
-use crate::special_form::{And, Assignment, Cond, Define, If, Lambda, Or};
+use crate::special_form::{And, Assignment, Cond, Define, If, Lambda, MutCell, MutatePair, Or};
 use crate::utils::{GetVals, ToExpr};
 
 // We treat any list that is expected to be evaluated as a procedure during parsing as a vector
@@ -16,16 +16,17 @@ pub enum Expr {
     List(Vec<Expr>),
     Atom(Token),
     Proc(Proc),
-    Dotted(Box<Pair>),
+    Dotted(Box<Pair>),   // rc<refcell>?
+    Lambda(Box<Lambda>), // rc?
+    EmptyList,
     If(Box<If>),
     Define(Box<Define>),
-    Lambda(Box<Lambda>),
     Assignment(Box<Assignment>),
+    MutatePair(Box<MutatePair>),
     Cond(Cond),
     And(And),
     Or(Or),
     Quoted(Box<Expr>),
-    EmptyList,
 }
 
 impl Expr {
@@ -77,10 +78,6 @@ impl Parser {
                     self.tokens.next();
                     self.parse_define()?.into_list()
                 }
-                Token::Assignment => {
-                    self.tokens.next();
-                    self.parse_assignment()?.into_list()
-                }
                 Token::And => {
                     self.tokens.next();
                     self.parse_and()?.into_list()
@@ -92,6 +89,15 @@ impl Parser {
                 Token::Cond => {
                     self.tokens.next();
                     self.parse_cond()?.into_list()
+                }
+                Token::Assignment => {
+                    self.tokens.next();
+                    self.parse_assignment()?.into_list()
+                }
+                Token::MutatePair(cell) => {
+                    let cell = cell.clone();
+                    self.tokens.next();
+                    self.parse_pair_mutation(cell)?.into_list()
                 }
                 Token::QuoteProc => {
                     self.tokens.next();
@@ -182,8 +188,28 @@ impl Parser {
         let arg_err = || EvalErr::InvalidArgs("'set!' expression. expected identifier and value");
         match self.parse_inner_list()? {
             Expr::List(rest) => {
-                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(arg_err)?;
-                Ok(Assignment::new(first, rest.collect()).to_expr())
+                let (first, second) = rest.into_iter().get_two_or_else(arg_err)?;
+                Ok(Assignment::new(first, second).to_expr())
+            }
+            Expr::EmptyList => Err(arg_err()),
+            t => Err(EvalErr::UnexpectedToken(t.printable())),
+        }
+    }
+
+    fn parse_pair_mutation(&mut self, cell: MutCell) -> Result<Expr, EvalErr> {
+        let arg_err = match cell {
+            MutCell::Car => {
+                || EvalErr::InvalidArgs("'set-car!' expression. expected identifier and value")
+            }
+            MutCell::Cdr => {
+                || EvalErr::InvalidArgs("'set-cdr!' expression. expected identifier and value")
+            }
+        };
+
+        match self.parse_inner_list()? {
+            Expr::List(rest) => {
+                let (first, second) = rest.into_iter().get_two_or_else(arg_err)?;
+                Ok(MutatePair::new(first, second, cell).to_expr())
             }
             Expr::EmptyList => Err(arg_err()),
             t => Err(EvalErr::UnexpectedToken(t.printable())),
@@ -230,6 +256,7 @@ impl Parser {
             | t @ Token::QuoteTick
             | t @ Token::QuoteProc
             | t @ Token::Else
+            | t @ Token::MutatePair(_)
             | t @ Token::Or => Ok(t.printable().to_expr()),
             // TODO: I'm pretty sure we hanlde nested quoted exprs in this way but double check
             // Token::QuoteTick => self.parse_quote(),

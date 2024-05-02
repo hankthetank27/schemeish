@@ -43,7 +43,7 @@ fn make_message(err: &EvalErr) -> String {
             let err = errs.iter().fold(String::new(), |errs, err| {
                 [errs, format!("-- {}", make_message(err))].join("\n")
             });
-            format!("{}{}", "could not parse tokens:".to_string(), err)
+            format!("{}{}", "could not parse tokens:", err)
         }
     }
 }

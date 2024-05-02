@@ -19,7 +19,7 @@ impl Pair {
     }
 
     // printing methods
-    pub fn try_list<'a>(&'a self) -> MaybeList<'a> {
+    pub fn try_list(&self) -> MaybeList {
         match self.check_if_list() {
             Some(ls) => MaybeList::List(ls),
             None => MaybeList::Pair(self),
@@ -27,7 +27,7 @@ impl Pair {
     }
 
     // ^^
-    fn check_if_list<'a>(&'a self) -> Option<PairList<'a>> {
+    fn check_if_list(&self) -> Option<PairList> {
         match &self.cdr {
             Expr::Dotted(next) => {
                 let cdr = next.check_if_list()?;
@@ -73,7 +73,7 @@ impl<'a> Iterator for Iter<'a> {
     type Item = &'a Expr;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next.map(|next| {
+        self.next.take().map(|next| {
             self.next = next.cdr.as_deref();
             next.car
         })

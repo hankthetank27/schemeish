@@ -12,6 +12,7 @@ use crate::special_form::Cond;
 use crate::special_form::Define;
 use crate::special_form::If;
 use crate::special_form::Lambda;
+use crate::special_form::MutatePair;
 use crate::special_form::Or;
 
 pub trait IterInnerVal {
@@ -188,5 +189,11 @@ impl ToExpr for Or {
 impl ToExpr for Cond {
     fn to_expr(self) -> Expr {
         Expr::Cond(self)
+    }
+}
+
+impl ToExpr for MutatePair {
+    fn to_expr(self) -> Expr {
+        Expr::MutatePair(Box::new(self))
     }
 }

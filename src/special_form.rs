@@ -1,5 +1,6 @@
-use std::iter::Peekable;
+use std::ptr;
 use std::vec::IntoIter;
+use std::{iter::Peekable, mem};
 
 use crate::{
     enviroment::EnvRef,
@@ -76,9 +77,9 @@ impl SpecialForm for Lambda {
         match self.params {
             Expr::List(first_expr) => {
                 let proc_args = first_expr.into_strings()?;
-                Ok(Compound::new(self.body, proc_args, env.clone_rc()).to_expr())
+                Ok(Compound::new(self.body, proc_args, env.clone_rc()?).to_expr())
             }
-            Expr::EmptyList => Ok(Compound::new(self.body, vec![], env.clone_rc()).to_expr()),
+            Expr::EmptyList => Ok(Compound::new(self.body, vec![], env.clone_rc()?).to_expr()),
             first_expr => Err(EvalErr::TypeError("list", first_expr)),
         }
     }
@@ -124,14 +125,11 @@ impl Cond {
 
 impl SpecialForm for Cond {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        eval(
-            cond_to_if(&mut self.clauses.into_iter().peekable(), env)?,
-            env,
-        )
+        eval(cond_to_if(&mut self.clauses.into_iter().peekable())?, env)
     }
 }
 
-fn cond_to_if(exprs: &mut Peekable<IntoIter<Expr>>, env: &EnvRef) -> Result<Expr, EvalErr> {
+fn cond_to_if(exprs: &mut Peekable<IntoIter<Expr>>) -> Result<Expr, EvalErr> {
     match exprs.next() {
         Some(expr) => match expr {
             Expr::List(expr) => {
@@ -140,13 +138,13 @@ fn cond_to_if(exprs: &mut Peekable<IntoIter<Expr>>, env: &EnvRef) -> Result<Expr
                 })?;
 
                 if exprs.peek().is_some() {
-                    If::new(predicate, consequence, cond_to_if(exprs, env)?)
+                    If::new(predicate, consequence, cond_to_if(exprs)?)
                         .to_expr()
                         .into_list()
                 } else {
                     match predicate {
                         Expr::Atom(Token::Else) => Ok(consequence),
-                        _ => If::new(predicate, consequence, cond_to_if(exprs, env)?)
+                        _ => If::new(predicate, consequence, cond_to_if(exprs)?)
                             .to_expr()
                             .into_list(),
                     }
@@ -161,28 +159,77 @@ fn cond_to_if(exprs: &mut Peekable<IntoIter<Expr>>, env: &EnvRef) -> Result<Expr
 #[derive(Debug, Clone, PartialEq)]
 pub struct Assignment {
     identifier: Expr,
-    body: Vec<Expr>,
+    value: Expr,
 }
 
 impl Assignment {
-    pub fn new(identifier: Expr, body: Vec<Expr>) -> Self {
-        Assignment { identifier, body }
+    pub fn new(identifier: Expr, value: Expr) -> Self {
+        Assignment { identifier, value }
     }
 }
 
 impl SpecialForm for Assignment {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        let mut body = self.body.into_iter();
         match self.identifier {
-            //bind var
             Expr::Atom(Token::Symbol(identifier)) => {
-                let value = body
-                    .next()
-                    .ok_or(EvalErr::InvalidArgs("variable has no declared value"))?;
-
-                env.update_val(identifier.to_string(), eval(value, env)?)
+                env.update_val(identifier.to_string(), eval(self.value, env)?)
             }
             expr => Err(EvalErr::TypeError("symbol", expr)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MutCell {
+    Car,
+    Cdr,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MutatePair {
+    target: Expr,
+    value: Expr,
+    cell: MutCell,
+}
+
+impl MutatePair {
+    pub fn new(target: Expr, value: Expr, cell: MutCell) -> Self {
+        MutatePair {
+            target,
+            value,
+            cell,
+        }
+    }
+}
+
+unsafe fn unsafe_eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
+    match expr {
+        Expr::Atom(Token::Symbol(ref identifier)) => {
+            let ptr = env.lookup_raw_pointer(identifier.to_string())?;
+            if ptr.is_null() {
+                Err(EvalErr::InvalidExpr(expr))
+            } else {
+                Ok(ptr::read(ptr))
+            }
+        }
+        expr => eval(expr, env),
+    }
+}
+
+impl SpecialForm for MutatePair {
+    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        unsafe {
+            match unsafe_eval(self.target, env)? {
+                Expr::Dotted(mut p) => {
+                    match self.cell {
+                        MutCell::Car => p.car = unsafe_eval(self.value, env)?,
+                        MutCell::Cdr => p.cdr = unsafe_eval(self.value, env)?,
+                    };
+                    mem::forget(p);
+                    Ok(Expr::EmptyList)
+                }
+                expr => Err(EvalErr::TypeError("pair", expr)),
+            }
         }
     }
 }

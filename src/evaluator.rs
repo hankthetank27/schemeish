@@ -14,13 +14,14 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
             let (op, args) = ls
                 .into_iter()
                 .get_one_and_rest_or_else(|| EvalErr::InvalidArgs("expected operation"))?;
-            let args = Args::new(args.collect(), env);
+            let args = Args::new(args.collect(), env)?;
 
             match op {
                 Expr::If(if_x) => if_x.eval(env),
                 Expr::Cond(cond_x) => cond_x.eval(env),
                 Expr::Define(def_x) => def_x.eval(env),
                 Expr::Assignment(ass_x) => ass_x.eval(env),
+                Expr::MutatePair(mut_p_x) => mut_p_x.eval(env),
                 Expr::And(and_x) => and_x.eval(env),
                 Expr::Lambda(lam_x) => lam_x.eval(env),
                 Expr::Or(or_x) => or_x.eval(env),
@@ -37,7 +38,7 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
 }
 
 pub fn apply(op: Expr, args: Args) -> Result<Expr, EvalErr> {
-    match eval(op, &args.env())? {
+    match eval(op, &args.env()?)? {
         Expr::Proc(proc) => match proc {
             Proc::Primitive(proc) => proc.call(args.eval()?),
             Proc::Compound(proc) => proc.call(args.eval()?),
@@ -52,11 +53,11 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn new(args: Vec<Expr>, env: &EnvRef) -> Args {
-        Args {
+    pub fn new(args: Vec<Expr>, env: &EnvRef) -> Result<Args, EvalErr> {
+        Ok(Args {
             args,
-            env: env.clone_rc(),
-        }
+            env: env.clone_rc()?,
+        })
     }
 
     pub fn eval(mut self) -> Result<Args, EvalErr> {
@@ -70,7 +71,7 @@ impl Args {
         Ok(self)
     }
 
-    pub fn env(&self) -> EnvRef {
+    pub fn env(&self) -> Result<EnvRef, EvalErr> {
         self.env.clone_rc()
     }
 
