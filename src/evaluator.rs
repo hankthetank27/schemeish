@@ -39,7 +39,7 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
 
 pub fn apply(op: Expr, args: Args) -> Result<Expr, EvalErr> {
     match eval(op, &args.env()?)? {
-        Expr::Proc(proc) => match proc {
+        Expr::Proc(proc) => match proc.as_ref() {
             Proc::Primitive(proc) => proc.call(args.eval()?),
             Proc::Compound(proc) => proc.call(args.eval()?),
         },

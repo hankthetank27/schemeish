@@ -6,6 +6,7 @@ use std::rc::Rc;
 use crate::error::EvalErr;
 use crate::parser::Expr;
 use crate::primitives::{io, numeric, pair, string};
+use crate::print::Printable;
 use crate::procedure::{PSig, Primitive};
 use crate::utils::ToExpr;
 
@@ -106,10 +107,12 @@ impl Env {
     }
 
     pub fn get_val(&self, name: &str) -> Result<Expr, EvalErr> {
-        self.values
+        let res = self
+            .values
             .get(name)
             .cloned()
-            .map_or_else(|| self.parent.get_val(name), Ok)
+            .map_or_else(|| self.parent.get_val(name), Ok);
+        res
     }
 
     pub fn insert_val(&mut self, name: String, val: Expr) -> Expr {

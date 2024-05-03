@@ -17,24 +17,26 @@ pub enum Expr {
     // evaluable list
     // is it possible to just tranmute this into Proc?
     List(Vec<Expr>),
-    Atom(Token),
 
     // since these clone on getting values from env,
     // we want to allow multiple ownership with Rc to prevent deep cloning lists etc
     //
     Dotted(Rc<Pair>), //TODO: Maybe Rc -> Rc<RefCell>? unsafe mutation seems to be ok for now...
-    Proc(Proc),       //TODO: Proc -> Rc<Proc>
-
+    Proc(Rc<Proc>),   //TODO: Proc -> Rc<Proc>
+    Atom(Token),
     EmptyList,
+
+    // we dont need to put these in Rc because they will never stored in an enviroment,
+    // and therefore never looked up and cloned.
+    Or(Or),
+    And(And),
+    Cond(Cond),
     If(Box<If>),
     Define(Box<Define>),
+    Quoted(Box<Expr>),
     Lambda(Box<Lambda>),
     Assignment(Box<Assignment>),
     MutatePair(Box<MutatePair>),
-    Cond(Cond),
-    And(And),
-    Or(Or),
-    Quoted(Box<Expr>),
 }
 
 impl Expr {
@@ -113,7 +115,7 @@ impl Parser {
                     self.next_or_err(EvalErr::UnexpectedEnd)?; // consume remaining paren
                     quoted
                 }
-                _ => self.parse_inner_list(),
+                _ => self.parse_list(),
             },
             Token::QuoteTick => self.parse_quote(),
             x @ Token::Number(_)
@@ -128,16 +130,13 @@ impl Parser {
         }
     }
 
-    fn parse_inner_list(&mut self) -> Result<Expr, EvalErr> {
+    fn parse_inner_list(&mut self) -> Result<Vec<Expr>, EvalErr> {
         let mut parsed_exprs: Vec<Expr> = vec![];
         while let Some(t) = self.tokens.peek() {
             match t {
                 Token::RParen => {
                     self.tokens.next();
-                    match parsed_exprs.len() {
-                        0 => return Ok(Expr::EmptyList),
-                        _ => return Ok(Expr::List(parsed_exprs)),
-                    }
+                    return Ok(parsed_exprs);
                 }
                 _ => parsed_exprs.push(self.parse_from_token()?),
             }
@@ -145,101 +144,77 @@ impl Parser {
         Err(EvalErr::UnexpectedEnd)
     }
 
-    fn parse_if(&mut self) -> Result<Expr, EvalErr> {
-        let arg_err = || {
-            EvalErr::InvalidArgs("'if' expression. expected condition, predicate, and consequence")
-        };
-        match self.parse_inner_list()? {
-            Expr::List(rest) => {
-                let (p, c, a) = rest.into_iter().get_three_or_else(arg_err)?;
-                Ok(If::new(p, c, a).to_expr())
-            }
-            Expr::EmptyList => Err(arg_err()),
-            t => Err(EvalErr::UnexpectedToken(t.printable())),
+    fn parse_list(&mut self) -> Result<Expr, EvalErr> {
+        let ls = self.parse_inner_list()?;
+        match ls.len() > 0 {
+            true => Ok(ls.to_expr()),
+            false => Ok(Expr::EmptyList),
         }
     }
 
+    fn parse_if(&mut self) -> Result<Expr, EvalErr> {
+        let (p, c, a) = self.parse_inner_list()?.into_iter().get_three_or_else(|| {
+            EvalErr::InvalidArgs("'if' expression. expected condition, predicate, and consequence")
+        })?;
+        Ok(If::new(p, c, a).to_expr())
+    }
+
     fn parse_cond(&mut self) -> Result<Expr, EvalErr> {
-        let arg_err = || EvalErr::InvalidArgs("'cond' expression. expected clauses.");
-        match self.parse_inner_list()? {
-            Expr::List(ls) => Ok(Cond::new(ls).to_expr()),
-            Expr::EmptyList => Err(arg_err()),
-            t => Err(EvalErr::UnexpectedToken(t.printable())),
+        let ls = self.parse_inner_list()?;
+        match ls.len() > 0 {
+            true => Ok(Cond::new(ls).to_expr()),
+            false => Err(EvalErr::InvalidArgs("'cond' expression. expected clauses.")),
         }
     }
 
     fn parse_lambda(&mut self) -> Result<Expr, EvalErr> {
-        let arg_err = || EvalErr::InvalidArgs("'lambda' expression. expected parameters and body");
-        match self.parse_inner_list()? {
-            Expr::List(rest) => {
-                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(arg_err)?;
-                Ok(Lambda::new(first, rest.collect()).to_expr())
-            }
-            Expr::EmptyList => Err(arg_err()),
-            t => Err(EvalErr::UnexpectedToken(t.printable())),
-        }
+        let (first, rest) = self
+            .parse_inner_list()?
+            .into_iter()
+            .get_one_and_rest_or_else(|| {
+                EvalErr::InvalidArgs("'lambda' expression. expected parameters and body")
+            })?;
+        Ok(Lambda::new(first, rest.collect()).to_expr())
     }
 
     fn parse_define(&mut self) -> Result<Expr, EvalErr> {
-        let arg_err = || EvalErr::InvalidArgs("'define' expression. expected identifier and value");
-        match self.parse_inner_list()? {
-            Expr::List(rest) => {
-                let (first, rest) = rest.into_iter().get_one_and_rest_or_else(arg_err)?;
-                Ok(Define::new(first, rest.collect()).to_expr())
-            }
-            Expr::EmptyList => Err(arg_err()),
-            t => Err(EvalErr::UnexpectedToken(t.printable())),
-        }
+        let (first, rest) = self
+            .parse_inner_list()?
+            .into_iter()
+            .get_one_and_rest_or_else(|| {
+                EvalErr::InvalidArgs("'define' expression. expected identifier and value")
+            })?;
+        Ok(Define::new(first, rest.collect()).to_expr())
     }
 
     fn parse_assignment(&mut self) -> Result<Expr, EvalErr> {
-        let arg_err = || EvalErr::InvalidArgs("'set!' expression. expected identifier and value");
-        match self.parse_inner_list()? {
-            Expr::List(rest) => {
-                let (first, second) = rest.into_iter().get_two_or_else(arg_err)?;
-                Ok(Assignment::new(first, second).to_expr())
-            }
-            Expr::EmptyList => Err(arg_err()),
-            t => Err(EvalErr::UnexpectedToken(t.printable())),
-        }
+        let (first, second) = self.parse_inner_list()?.into_iter().get_two_or_else(|| {
+            EvalErr::InvalidArgs("'set!' expression. expected identifier and value")
+        })?;
+        Ok(Assignment::new(first, second).to_expr())
     }
 
     fn parse_pair_mutation(&mut self, cell: MutCell) -> Result<Expr, EvalErr> {
-        let arg_err = match cell {
-            MutCell::Car => {
-                || EvalErr::InvalidArgs("'set-car!' expression. expected identifier and value")
-            }
-            MutCell::Cdr => {
-                || EvalErr::InvalidArgs("'set-cdr!' expression. expected identifier and value")
-            }
-        };
-
-        match self.parse_inner_list()? {
-            Expr::List(rest) => {
-                let (first, second) = rest.into_iter().get_two_or_else(arg_err)?;
-                Ok(MutatePair::new(first, second, cell).to_expr())
-            }
-            Expr::EmptyList => Err(arg_err()),
-            t => Err(EvalErr::UnexpectedToken(t.printable())),
-        }
+        let (first, second) =
+            self.parse_inner_list()?
+                .into_iter()
+                .get_two_or_else(|| match cell {
+                    MutCell::Car => {
+                        EvalErr::InvalidArgs("'set-car!' expression. expected identifier and value")
+                    }
+                    MutCell::Cdr => {
+                        EvalErr::InvalidArgs("'set-cdr!' expression. expected identifier and value")
+                    }
+                })?;
+        Ok(MutatePair::new(first, second, cell).to_expr())
     }
 
     fn parse_and(&mut self) -> Result<Expr, EvalErr> {
-        let arg_err = || EvalErr::InvalidArgs("'and' expression. expected arguments");
-        match self.parse_inner_list()? {
-            Expr::List(rest) => Ok(And::new(rest).to_expr()),
-            Expr::EmptyList => Err(arg_err()),
-            t => Err(EvalErr::UnexpectedToken(t.printable())),
-        }
+        Ok(And::new(self.parse_inner_list()?).to_expr())
     }
 
     fn parse_or(&mut self) -> Result<Expr, EvalErr> {
-        let arg_err = || EvalErr::InvalidArgs("'or' expression. expected arguments");
-        match self.parse_inner_list()? {
-            Expr::List(rest) => Ok(Or::new(rest).to_expr()),
-            Expr::EmptyList => Err(arg_err()),
-            t => Err(EvalErr::UnexpectedToken(t.printable())),
-        }
+        Ok(Or::new(self.parse_inner_list()?).to_expr())
     }
 
     // We treat a quoted expression as a normal expression behind an extra indrection, with the
@@ -312,15 +287,17 @@ mod test {
         let scm = "1 (+ 1 (+ 1 2))";
         let res: Vec<Expr> = vec![
             Expr::Atom(Token::Number(1.0)),
-            Expr::List(vec![
+            vec![
                 Expr::Atom(Token::Symbol("+".to_string())),
                 Expr::Atom(Token::Number(1.0)),
-                Expr::List(vec![
+                vec![
                     Expr::Atom(Token::Symbol("+".to_string())),
                     Expr::Atom(Token::Number(1.0)),
                     Expr::Atom(Token::Number(2.0)),
-                ]),
-            ]),
+                ]
+                .to_expr(),
+            ]
+            .to_expr(),
         ];
         let tokens = TokenStream::new(scm).collect_tokens().unwrap();
         let exprs = Parser::new(tokens).parse().unwrap();

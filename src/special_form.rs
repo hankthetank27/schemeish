@@ -203,6 +203,8 @@ impl MutatePair {
     }
 }
 
+//also this is not a special form and can be moved into the pair module
+
 // TODO: UNSAFE!!! really need to think about this more lol. maybe use rc<refcell> but that could
 // complicate a lot of other things... particularly printing on lists unless we just clone the list
 // and consume the clone to print it which actually is totally fine.
