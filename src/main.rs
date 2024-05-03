@@ -70,8 +70,9 @@ mod test {
     use schemeish::{
         error::EvalErr,
         lexer::Token::{Boolean, Number},
-        parser::Expr::{self, Atom, Dotted, EmptyList},
+        parser::Expr::{self, Atom, EmptyList},
         primitives::pair::Pair,
+        utils::ToExpr,
     };
 
     use super::*;
@@ -205,16 +206,15 @@ mod test {
         let res = evalulated.get(2).unwrap().to_owned();
         assert_eq!(
             res,
-            Dotted(Box::new(Pair {
-                car: Atom(Number(2.0)),
-                cdr: Dotted(Box::new(Pair {
-                    car: Atom(Number(4.0)),
-                    cdr: Dotted(Box::new(Pair {
-                        car: Atom(Number(6.0)),
-                        cdr: EmptyList
-                    }))
-                }))
-            }))
+            Pair::new(
+                Atom(Number(2.0)),
+                Pair::new(
+                    Atom(Number(4.0)),
+                    Pair::new(Atom(Number(6.0)), EmptyList).to_expr()
+                )
+                .to_expr()
+            )
+            .to_expr()
         )
     }
 
@@ -294,7 +294,7 @@ mod test {
 
         let evalulated = eval_test(scm);
         let res = evalulated.get(0).unwrap().to_owned();
-        assert_eq!(res, Dotted(Pair::new(Atom(Number(1.0)), EmptyList)));
+        assert_eq!(res, Pair::new(Atom(Number(1.0)), EmptyList).to_expr());
     }
 
     #[test]
@@ -360,6 +360,19 @@ mod test {
             }
             Ok(e) => panic!("Expected error, got {:?}", e),
         }
+    }
+
+    #[test]
+    fn mut_list() {
+        let scm = "(define x (list 1 2 3))
+                    (set-cdr! (cdr (cdr x)) (list 4 5 6))
+                    x
+                    (set-cdr! x (list 4 5 6))
+                    x";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        assert_eq!(res, Pair::new(Atom(Number(1.0)), EmptyList).to_expr());
     }
 
     #[test]

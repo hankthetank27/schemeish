@@ -1,4 +1,5 @@
 use std::iter::Peekable;
+use std::rc::Rc;
 use std::vec::IntoIter;
 
 use crate::error::EvalErr;
@@ -13,14 +14,21 @@ use crate::utils::{GetVals, ToExpr};
 // of expressions rather than a proper list of pairs to simplify and reduce the cost of the parsing process.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    // evaluable list
+    // is it possible to just tranmute this into Proc?
     List(Vec<Expr>),
     Atom(Token),
-    Proc(Proc),
-    Dotted(Box<Pair>),   // rc<refcell>?
-    Lambda(Box<Lambda>), // rc?
+
+    // since these clone on getting values from env,
+    // we want to allow multiple ownership with Rc to prevent deep cloning lists etc
+    //
+    Dotted(Rc<Pair>), //TODO: Maybe Rc -> Rc<RefCell>? unsafe mutation seems to be ok for now...
+    Proc(Proc),       //TODO: Proc -> Rc<Proc>
+
     EmptyList,
     If(Box<If>),
     Define(Box<Define>),
+    Lambda(Box<Lambda>),
     Assignment(Box<Assignment>),
     MutatePair(Box<MutatePair>),
     Cond(Cond),
@@ -278,7 +286,7 @@ impl Parser {
                 _ => {
                     let current = self.parse_quote()?;
                     let next = self.parse_inner_quote()?;
-                    Ok(Expr::Dotted(Pair::new(current, next)))
+                    Ok(Pair::new(current, next).to_expr())
                 }
             },
             None => Err(EvalErr::UnexpectedEnd),
@@ -322,13 +330,17 @@ mod test {
     #[test]
     fn quoted() {
         let scm = "'(+ 1)";
-        let res: Vec<Expr> = vec![Expr::Quoted(Box::new(Expr::Dotted(Pair::new(
-            Expr::Quoted(Box::new(Expr::Atom(Token::Symbol("+".to_string())))),
-            Expr::Dotted(Pair::new(
-                Expr::Quoted(Box::new(Expr::Atom(Token::Number(1.0)))),
-                Expr::EmptyList,
-            )),
-        ))))];
+        let res: Vec<Expr> = vec![Expr::Quoted(Box::new(
+            Pair::new(
+                Expr::Quoted(Box::new(Expr::Atom(Token::Symbol("+".to_string())))),
+                Pair::new(
+                    Expr::Quoted(Box::new(Expr::Atom(Token::Number(1.0)))),
+                    Expr::EmptyList,
+                )
+                .to_expr(),
+            )
+            .to_expr(),
+        ))];
         let tokens = TokenStream::new(scm).collect_tokens().unwrap();
         let exprs = Parser::new(tokens).parse().unwrap();
         assert_eq!(res, exprs);
@@ -337,13 +349,17 @@ mod test {
     #[test]
     fn quoted_fn() {
         let scm = "(quote (+ 1))";
-        let res: Vec<Expr> = vec![Expr::Quoted(Box::new(Expr::Dotted(Pair::new(
-            Expr::Quoted(Box::new(Expr::Atom(Token::Symbol("+".to_string())))),
-            Expr::Dotted(Pair::new(
-                Expr::Quoted(Box::new(Expr::Atom(Token::Number(1.0)))),
-                Expr::EmptyList,
-            )),
-        ))))];
+        let res: Vec<Expr> = vec![Expr::Quoted(Box::new(
+            Pair::new(
+                Expr::Quoted(Box::new(Expr::Atom(Token::Symbol("+".to_string())))),
+                Pair::new(
+                    Expr::Quoted(Box::new(Expr::Atom(Token::Number(1.0)))),
+                    Expr::EmptyList,
+                )
+                .to_expr(),
+            )
+            .to_expr(),
+        ))];
         let tokens = TokenStream::new(scm).collect_tokens().unwrap();
         let exprs = Parser::new(tokens).parse().unwrap();
         assert_eq!(res, exprs);

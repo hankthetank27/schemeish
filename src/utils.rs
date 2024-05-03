@@ -1,4 +1,5 @@
 use std::iter::Peekable;
+use std::rc::Rc;
 use std::vec::IntoIter;
 
 use crate::error::EvalErr;
@@ -146,7 +147,7 @@ impl ToExpr for Vec<Expr> {
 
 impl ToExpr for Pair {
     fn to_expr(self) -> Expr {
-        Expr::Dotted(Box::new(self))
+        Expr::Dotted(Rc::new(self))
     }
 }
 

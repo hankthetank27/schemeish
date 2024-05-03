@@ -14,8 +14,8 @@ pub struct Pair {
 }
 
 impl Pair {
-    pub fn new(car: Expr, cdr: Expr) -> Box<Pair> {
-        Box::new(Pair { car, cdr })
+    pub fn new(car: Expr, cdr: Expr) -> Pair {
+        Pair { car, cdr }
     }
 
     // printing methods
@@ -94,7 +94,7 @@ pub fn car(args: Args) -> Result<Expr, EvalErr> {
         .get_one_or_else(|| EvalErr::InvalidArgs("'car'. expected argument"))?;
 
     match expr {
-        Expr::Dotted(p) => Ok(p.car),
+        Expr::Dotted(p) => Ok(p.as_ref().car.clone()),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access car of empty list")),
         x => Err(EvalErr::TypeError("pair", x)),
     }
@@ -106,7 +106,7 @@ pub fn cdr(args: Args) -> Result<Expr, EvalErr> {
         .get_one_or_else(|| EvalErr::InvalidArgs("'cdr'. expected argument"))?;
 
     match expr {
-        Expr::Dotted(p) => Ok(p.cdr),
+        Expr::Dotted(p) => Ok(p.as_ref().cdr.clone()),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access cdr of empty list")),
         x => Err(EvalErr::TypeError("pair", x)),
     }

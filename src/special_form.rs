@@ -1,6 +1,6 @@
-use std::ptr;
+use std::iter::Peekable;
+use std::rc::Rc;
 use std::vec::IntoIter;
-use std::{iter::Peekable, mem};
 
 use crate::{
     enviroment::EnvRef,
@@ -8,6 +8,7 @@ use crate::{
     evaluator::eval,
     lexer::Token,
     parser::Expr,
+    primitives::pair::Pair,
     print::Printable,
     procedure::Compound,
     utils::{GetVals, IterInnerVal, ToExpr},
@@ -202,34 +203,20 @@ impl MutatePair {
     }
 }
 
-unsafe fn unsafe_eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
-    match expr {
-        Expr::Atom(Token::Symbol(ref identifier)) => {
-            let ptr = env.lookup_raw_pointer(identifier.to_string())?;
-            if ptr.is_null() {
-                Err(EvalErr::InvalidExpr(expr))
-            } else {
-                Ok(ptr::read(ptr))
-            }
-        }
-        expr => eval(expr, env),
-    }
-}
-
+// TODO: UNSAFE!!! really need to think about this more lol. maybe use rc<refcell> but that could
+// complicate a lot of other things... particularly printing on lists unless we just clone the list
+// and consume the clone to print it which actually is totally fine.
 impl SpecialForm for MutatePair {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        unsafe {
-            match unsafe_eval(self.target, env)? {
-                Expr::Dotted(mut p) => {
-                    match self.cell {
-                        MutCell::Car => p.car = unsafe_eval(self.value, env)?,
-                        MutCell::Cdr => p.cdr = unsafe_eval(self.value, env)?,
-                    };
-                    mem::forget(p);
-                    Ok(Expr::EmptyList)
-                }
-                expr => Err(EvalErr::TypeError("pair", expr)),
-            }
+        match eval(self.target, env)? {
+            Expr::Dotted(p) => unsafe {
+                match self.cell {
+                    MutCell::Car => (*(Rc::into_raw(p) as *mut Pair)).car = eval(self.value, env)?,
+                    MutCell::Cdr => (*(Rc::into_raw(p) as *mut Pair)).cdr = eval(self.value, env)?,
+                };
+                Ok(Expr::EmptyList) //TODO: do i need to create an undefined type?
+            },
+            expr => Err(EvalErr::TypeError("pair", expr)),
         }
     }
 }

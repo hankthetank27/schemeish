@@ -22,8 +22,8 @@ pub enum Token {
     MutatePair(MutCell),
     Number(f64),
     Boolean(bool),
-    Str(String),
-    Symbol(String),
+    Str(String),    //TODO: String -> Rc<&str>?
+    Symbol(String), //TODO: String -> Rc<&str>?
 }
 
 pub type TokenRes<T> = Result<T, EvalErr>;
