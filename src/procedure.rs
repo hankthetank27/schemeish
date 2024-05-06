@@ -63,9 +63,7 @@ impl Compound {
 
         self.body
             .into_iter()
-            .try_fold(Expr::EmptyList, |_returned_expr, expr| {
-                eval(expr, &new_env_ref)
-            })
+            .try_fold(Expr::Void, |_returned_expr, expr| eval(expr, &new_env_ref))
     }
 
     pub fn params(self) -> Vec<String> {

@@ -9,11 +9,11 @@ use crate::primitives::pair::Pair;
 use crate::procedure::Proc;
 use crate::special_form::And;
 use crate::special_form::Assignment;
+use crate::special_form::Begin;
 use crate::special_form::Cond;
 use crate::special_form::Define;
 use crate::special_form::If;
 use crate::special_form::Lambda;
-use crate::special_form::MutatePair;
 use crate::special_form::Or;
 
 pub trait IterInnerVal {
@@ -193,8 +193,8 @@ impl ToExpr for Cond {
     }
 }
 
-impl ToExpr for MutatePair {
+impl ToExpr for Begin {
     fn to_expr(self) -> Expr {
-        Expr::MutatePair(Box::new(self))
+        Expr::Begin(self)
     }
 }

@@ -75,6 +75,8 @@ impl EnvRef {
             ("cons", pair::cons as PSig),
             ("car", pair::car as PSig),
             ("cdr", pair::cdr as PSig),
+            ("set-car!", pair::set_car as PSig),
+            ("set-cdr!", pair::set_cdr as PSig),
             ("list", pair::list as PSig),
             ("null?", pair::null_check as PSig),
             ("pair?", pair::pair_check as PSig),

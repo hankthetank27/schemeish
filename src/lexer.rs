@@ -2,7 +2,6 @@ use core::str::Chars;
 use std::iter::Peekable;
 
 use crate::error::EvalErr;
-use crate::special_form::MutCell;
 use crate::utils::SoftIter;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -15,11 +14,11 @@ pub enum Token {
     Define,
     Lambda,
     Cond,
+    Begin,
     Else,
     Assignment,
     QuoteTick,
     QuoteProc,
-    MutatePair(MutCell),
     Number(f64),
     Boolean(bool),
     Str(String),    //TODO: String -> Rc<&str>?
@@ -104,13 +103,12 @@ impl<'a> TokenStream<'a> {
             "define" => Token::Define,
             "lambda" => Token::Lambda,
             "quote" => Token::QuoteProc,
+            "begin" => Token::Begin,
             "and" => Token::And,
             "or" => Token::Or,
             "cond" => Token::Cond,
             "set!" => Token::Assignment,
             "else" => Token::Else,
-            "set-car!" => Token::MutatePair(MutCell::Car),
-            "set-cdr!" => Token::MutatePair(MutCell::Cdr),
             _ => Token::Symbol(value),
         })
     }

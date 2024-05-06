@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use std::vec;
 
 use core::iter::Peekable;
@@ -109,6 +110,37 @@ pub fn cdr(args: Args) -> Result<Expr, EvalErr> {
         Expr::Dotted(p) => Ok(p.as_ref().cdr.clone()),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access cdr of empty list")),
         x => Err(EvalErr::TypeError("pair", x)),
+    }
+}
+
+// TODO: UNSAFE!!! really need to think about this more lol. maybe use rc<refcell> but that could
+// complicate a lot of other things... particularly printing on lists unless we just clone the list
+// and consume the clone to print it which actually is totally fine.
+pub fn set_car(args: Args) -> Result<Expr, EvalErr> {
+    let (target, source) = args
+        .into_iter()
+        .get_two_or_else(|| EvalErr::InvalidArgs("'car'. expected argument"))?;
+
+    match target {
+        Expr::Dotted(p) => unsafe {
+            (*(Rc::into_raw(p) as *mut Pair)).car = source;
+            Ok(Expr::Void)
+        },
+        expr => Err(EvalErr::TypeError("pair", expr)),
+    }
+}
+
+pub fn set_cdr(args: Args) -> Result<Expr, EvalErr> {
+    let (target, source) = args
+        .into_iter()
+        .get_two_or_else(|| EvalErr::InvalidArgs("'cdr'. expected argument"))?;
+
+    match target {
+        Expr::Dotted(p) => unsafe {
+            (*(Rc::into_raw(p) as *mut Pair)).cdr = source;
+            Ok(Expr::Void)
+        },
+        expr => Err(EvalErr::TypeError("pair", expr)),
     }
 }
 

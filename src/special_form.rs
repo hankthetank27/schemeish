@@ -1,5 +1,4 @@
 use std::iter::Peekable;
-use std::rc::Rc;
 use std::vec::IntoIter;
 
 use crate::{
@@ -8,7 +7,6 @@ use crate::{
     evaluator::eval,
     lexer::Token,
     parser::Expr,
-    primitives::pair::Pair,
     print::Printable,
     procedure::Compound,
     utils::{GetVals, IterInnerVal, ToExpr},
@@ -181,43 +179,21 @@ impl SpecialForm for Assignment {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum MutCell {
-    Car,
-    Cdr,
+pub struct Begin {
+    exprs: Vec<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct MutatePair {
-    target: Expr,
-    value: Expr,
-    cell: MutCell,
-}
-
-impl MutatePair {
-    pub fn new(target: Expr, value: Expr, cell: MutCell) -> Self {
-        MutatePair {
-            target,
-            value,
-            cell,
-        }
+impl Begin {
+    pub fn new(exprs: Vec<Expr>) -> Self {
+        Begin { exprs }
     }
 }
 
-// TODO: UNSAFE!!! really need to think about this more lol. maybe use rc<refcell> but that could
-// complicate a lot of other things... particularly printing on lists unless we just clone the list
-// and consume the clone to print it which actually is totally fine.
-impl SpecialForm for MutatePair {
+impl SpecialForm for Begin {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        match eval(self.target, env)? {
-            Expr::Dotted(p) => unsafe {
-                match self.cell {
-                    MutCell::Car => (*(Rc::into_raw(p) as *mut Pair)).car = eval(self.value, env)?,
-                    MutCell::Cdr => (*(Rc::into_raw(p) as *mut Pair)).cdr = eval(self.value, env)?,
-                };
-                Ok(Expr::EmptyList) //TODO: do i need to create an undefined type?
-            },
-            expr => Err(EvalErr::TypeError("pair", expr)),
-        }
+        self.exprs
+            .into_iter()
+            .try_fold(Expr::Void, |_returned_expr, expr| eval(expr, env))
     }
 }
 

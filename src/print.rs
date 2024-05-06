@@ -3,7 +3,6 @@ use crate::{
     parser::Expr,
     primitives::pair::{MaybeList, Pair},
     procedure::Proc,
-    special_form::MutCell,
 };
 
 pub trait Print<T> {
@@ -35,15 +34,12 @@ impl Printable for Token {
             Token::Cond => "cond".into(),
             Token::QuoteTick => "'".into(),
             Token::QuoteProc => "quote".into(),
+            Token::Begin => "begin".into(),
             Token::Symbol(s) => s.into(),
             Token::Number(n) => n.to_string(),
             Token::Boolean(b) => match b {
                 true => "#t".into(),
                 false => "#f".into(),
-            },
-            Token::MutatePair(p) => match p {
-                MutCell::Car => "set-car!".into(),
-                MutCell::Cdr => "set-cdr!".into(),
             },
             Token::Str(s) => format!(r##""{s}""##),
         }
@@ -68,6 +64,7 @@ impl Printable for Expr {
             Expr::List(l) => l.printable(),
             Expr::Dotted(p) => p.printable(),
             Expr::Quoted(q) => (*q).printable(),
+            Expr::Void => "".to_string(),
             x => format!("{:?}", x),
         }
     }

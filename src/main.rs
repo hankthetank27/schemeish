@@ -362,17 +362,39 @@ mod test {
         }
     }
 
-    // #[test]
-    // fn mut_list() {
-    //     let scm = "(define x (list 1 2 3))
-    //                 (set-cdr! (cdr (cdr x)) (list 4 5 6))
-    //                 x
-    //                 (set-cdr! x (list 4 5 6))
-    //                 x";
-    //     let evalulated = eval_test(scm);
-    //     let res = evalulated.get(0).unwrap().to_owned();
-    //     assert_eq!(res, Pair::new(Atom(Number(1.0)), EmptyList).to_expr());
-    // }
+    #[test]
+    fn mut_list_uses_ref() {
+        let scm = "(define x (list 1 2))
+                    (set-cdr! (cdr x) (list 3 4))
+                    x
+                    (set-cdr! x (list 4 5 6))
+                    x";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(2).unwrap().to_owned();
+        assert_eq!(
+            res,
+            Pair::new(
+                1.0.to_expr(),
+                Pair::new(
+                    4.0.to_expr(),
+                    Pair::new(5.0.to_expr(), Pair::new(6.0.to_expr(), EmptyList).to_expr())
+                        .to_expr()
+                )
+                .to_expr()
+            )
+            .to_expr()
+        );
+        let res_new = evalulated.get(4).unwrap().to_owned();
+        assert_eq!(res, res_new);
+    }
+
+    #[test]
+    fn mut_list_can_cycle() {
+        let scm = "(define x (list 1 2 3))
+                    (set-cdr! (cdr (cdr x)) x)";
+        eval_test(scm);
+    }
 
     #[test]
     fn missplaced_else() {

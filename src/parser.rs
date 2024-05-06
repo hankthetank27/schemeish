@@ -7,7 +7,7 @@ use crate::lexer::Token;
 use crate::primitives::pair::Pair;
 use crate::print::Printable;
 use crate::procedure::Proc;
-use crate::special_form::{And, Assignment, Cond, Define, If, Lambda, MutCell, MutatePair, Or};
+use crate::special_form::{And, Assignment, Begin, Cond, Define, If, Lambda, Or};
 use crate::utils::{GetVals, ToExpr};
 
 // We treat any list that is expected to be evaluated as a procedure during parsing as a vector
@@ -17,19 +17,20 @@ pub enum Expr {
     // evaluable list
     // is it possible to just tranmute this into Proc?
     List(Vec<Expr>),
-    Atom(Token),
 
     // since these clone on getting values from env,
     // we want to allow multiple ownership with Rc to prevent deep cloning lists etc
     Dotted(Rc<Pair>), //TODO: Maybe Rc -> Rc<RefCell>? unsafe mutation seems to be ok for now...
     Proc(Proc),       //TODO: Proc -> Rc<Proc>
 
+    Atom(Token),
     EmptyList,
+    Void,
     If(Box<If>),
     Define(Box<Define>),
     Lambda(Box<Lambda>),
     Assignment(Box<Assignment>),
-    MutatePair(Box<MutatePair>),
+    Begin(Begin),
     Cond(Cond),
     And(And),
     Or(Or),
@@ -101,10 +102,9 @@ impl Parser {
                     self.tokens.next();
                     self.parse_assignment()?.into_list()
                 }
-                Token::MutatePair(cell) => {
-                    let cell = cell.clone();
+                Token::Begin => {
                     self.tokens.next();
-                    self.parse_pair_mutation(cell)?.into_list()
+                    self.parse_begin()?.into_list()
                 }
                 Token::QuoteProc => {
                     self.tokens.next();
@@ -120,9 +120,6 @@ impl Parser {
             | x @ Token::Boolean(_)
             | x @ Token::Symbol(_)
             | x @ Token::Else => Ok(Expr::Atom(x)),
-            // TODO: we may want to handle below as a special case? seems fine with a
-            // generic UnexpectedToken error though.
-            // p @ Token::RParen => Err(EvalErr::UnexpectedToken(p.printable())),
             t => Err(EvalErr::UnexpectedToken(t.printable())),
         }
     }
@@ -191,19 +188,8 @@ impl Parser {
         Ok(Assignment::new(first, second).to_expr())
     }
 
-    fn parse_pair_mutation(&mut self, cell: MutCell) -> Result<Expr, EvalErr> {
-        let (first, second) =
-            self.parse_inner_list()?
-                .into_iter()
-                .get_two_or_else(|| match cell {
-                    MutCell::Car => {
-                        EvalErr::InvalidArgs("'set-car!' expression. expected identifier and value")
-                    }
-                    MutCell::Cdr => {
-                        EvalErr::InvalidArgs("'set-cdr!' expression. expected identifier and value")
-                    }
-                })?;
-        Ok(MutatePair::new(first, second, cell).to_expr())
+    fn parse_begin(&mut self) -> Result<Expr, EvalErr> {
+        Ok(Begin::new(self.parse_inner_list()?).to_expr())
     }
 
     fn parse_and(&mut self) -> Result<Expr, EvalErr> {
@@ -236,7 +222,7 @@ impl Parser {
             | t @ Token::QuoteTick
             | t @ Token::QuoteProc
             | t @ Token::Else
-            | t @ Token::MutatePair(_)
+            | t @ Token::Begin
             | t @ Token::Or => Ok(t.printable().to_expr()),
             // TODO: I'm pretty sure we hanlde nested quoted exprs in this way but double check
             // Token::QuoteTick => self.parse_quote(),
