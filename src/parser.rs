@@ -17,26 +17,23 @@ pub enum Expr {
     // evaluable list
     // is it possible to just tranmute this into Proc?
     List(Vec<Expr>),
+    Atom(Token),
 
     // since these clone on getting values from env,
     // we want to allow multiple ownership with Rc to prevent deep cloning lists etc
-    //
     Dotted(Rc<Pair>), //TODO: Maybe Rc -> Rc<RefCell>? unsafe mutation seems to be ok for now...
-    Proc(Rc<Proc>),   //TODO: Proc -> Rc<Proc>
-    Atom(Token),
-    EmptyList,
+    Proc(Proc),       //TODO: Proc -> Rc<Proc>
 
-    // we dont need to put these in Rc because they will never stored in an enviroment,
-    // and therefore never looked up and cloned.
-    Or(Or),
-    And(And),
-    Cond(Cond),
+    EmptyList,
     If(Box<If>),
     Define(Box<Define>),
-    Quoted(Box<Expr>),
     Lambda(Box<Lambda>),
     Assignment(Box<Assignment>),
     MutatePair(Box<MutatePair>),
+    Cond(Cond),
+    And(And),
+    Or(Or),
+    Quoted(Box<Expr>),
 }
 
 impl Expr {
@@ -286,16 +283,11 @@ mod test {
     fn valid_parse() {
         let scm = "1 (+ 1 (+ 1 2))";
         let res: Vec<Expr> = vec![
-            Expr::Atom(Token::Number(1.0)),
+            1.0.to_expr(),
             vec![
-                Expr::Atom(Token::Symbol("+".to_string())),
-                Expr::Atom(Token::Number(1.0)),
-                vec![
-                    Expr::Atom(Token::Symbol("+".to_string())),
-                    Expr::Atom(Token::Number(1.0)),
-                    Expr::Atom(Token::Number(2.0)),
-                ]
-                .to_expr(),
+                "+".to_string().to_expr(),
+                1.0.to_expr(),
+                vec!["+".to_string().to_expr(), 1.0.to_expr(), 2.0.to_expr()].to_expr(),
             ]
             .to_expr(),
         ];
@@ -309,12 +301,8 @@ mod test {
         let scm = "'(+ 1)";
         let res: Vec<Expr> = vec![Expr::Quoted(Box::new(
             Pair::new(
-                Expr::Quoted(Box::new(Expr::Atom(Token::Symbol("+".to_string())))),
-                Pair::new(
-                    Expr::Quoted(Box::new(Expr::Atom(Token::Number(1.0)))),
-                    Expr::EmptyList,
-                )
-                .to_expr(),
+                Expr::Quoted(Box::new("+".to_string().to_expr())),
+                Pair::new(Expr::Quoted(Box::new(1.0.to_expr())), Expr::EmptyList).to_expr(),
             )
             .to_expr(),
         ))];

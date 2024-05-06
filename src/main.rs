@@ -369,12 +369,9 @@ mod test {
     //                 x
     //                 (set-cdr! x (list 4 5 6))
     //                 x";
-
     //     let evalulated = eval_test(scm);
-    //     let res = evalulated.get(2).unwrap().to_owned();
-    //     assert_eq!(res,);
-    //     let res = evalulated.get(4).unwrap().to_owned();
-    //     assert_eq!(res,);
+    //     let res = evalulated.get(0).unwrap().to_owned();
+    //     assert_eq!(res, Pair::new(Atom(Number(1.0)), EmptyList).to_expr());
     // }
 
     #[test]

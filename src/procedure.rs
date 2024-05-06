@@ -22,7 +22,7 @@ impl Primitive {
         Proc::Primitive(Primitive(proc))
     }
 
-    pub fn call(&self, args: Args) -> Result<Expr, EvalErr> {
+    pub fn call(self, args: Args) -> Result<Expr, EvalErr> {
         (self.0)(args)
     }
 
@@ -44,7 +44,7 @@ impl Compound {
         Proc::Compound(Compound { body, params, env })
     }
 
-    pub fn call(&self, args: Args) -> Result<Expr, EvalErr> {
+    pub fn call(self, args: Args) -> Result<Expr, EvalErr> {
         if self.params.len() != args.len() {
             return Err(EvalErr::InvalidArgs(
                 "amount of args does not match function pararms",
@@ -62,9 +62,9 @@ impl Compound {
         let new_env_ref = EnvRef::new(new_env);
 
         self.body
-            .iter()
+            .into_iter()
             .try_fold(Expr::EmptyList, |_returned_expr, expr| {
-                eval(expr.clone(), &new_env_ref)
+                eval(expr, &new_env_ref)
             })
     }
 

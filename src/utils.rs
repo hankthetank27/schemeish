@@ -135,7 +135,7 @@ impl ToExpr for bool {
 
 impl ToExpr for Proc {
     fn to_expr(self) -> Expr {
-        Expr::Proc(Rc::new(self))
+        Expr::Proc(self)
     }
 }
 
