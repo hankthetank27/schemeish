@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use crate::error::EvalErr;
 use crate::parser::Expr;
-use crate::primitives::{io, numeric, pair, string};
+use crate::primitives::{compare, io, numeric, pair, string};
 use crate::procedure::{PSig, Primitive};
 use crate::utils::ToExpr;
 
@@ -72,6 +72,7 @@ impl EnvRef {
             (">=", numeric::greater_than_or_eq as PSig),
             ("<", numeric::less_than as PSig),
             ("<=", numeric::less_than_or_eq as PSig),
+            ("number?", numeric::check_number as PSig),
             ("cons", pair::cons as PSig),
             ("car", pair::car as PSig),
             ("cdr", pair::cdr as PSig),
@@ -82,6 +83,8 @@ impl EnvRef {
             ("pair?", pair::pair_check as PSig),
             ("display", io::display as PSig),
             ("equal?", string::equal as PSig),
+            ("eq?", string::equal as PSig),
+            ("not", compare::not as PSig),
         ];
 
         for (name, proc) in primitives.into_iter() {

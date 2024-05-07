@@ -23,6 +23,7 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
                 Expr::Assignment(ass_x) => ass_x.eval(env),
                 Expr::And(and_x) => and_x.eval(env),
                 Expr::Begin(beg_x) => beg_x.eval(env),
+                Expr::Let(let_x) => let_x.eval(env),
                 Expr::Lambda(lam_x) => lam_x.eval(env),
                 Expr::Or(or_x) => or_x.eval(env),
                 Expr::List(_) => apply(op, args),

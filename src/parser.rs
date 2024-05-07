@@ -7,7 +7,7 @@ use crate::lexer::Token;
 use crate::primitives::pair::Pair;
 use crate::print::Printable;
 use crate::procedure::Proc;
-use crate::special_form::{And, Assignment, Begin, Cond, Define, If, Lambda, Or};
+use crate::special_form::{And, Assignment, Begin, Cond, Define, If, Lambda, Let, Or};
 use crate::utils::{GetVals, ToExpr};
 
 // We treat any list that is expected to be evaluated as a procedure during parsing as a vector
@@ -27,6 +27,7 @@ pub enum Expr {
     EmptyList,
     Void,
     If(Box<If>),
+    Let(Box<Let>),
     Define(Box<Define>),
     Lambda(Box<Lambda>),
     Assignment(Box<Assignment>),
@@ -106,6 +107,10 @@ impl Parser {
                     self.tokens.next();
                     self.parse_begin()?.into_list()
                 }
+                Token::Let => {
+                    self.tokens.next();
+                    self.parse_let()?.into_list()
+                }
                 Token::QuoteProc => {
                     self.tokens.next();
                     let quoted = self.parse_quote();
@@ -139,46 +144,49 @@ impl Parser {
     }
 
     fn parse_list(&mut self) -> Result<Expr, EvalErr> {
-        let ls = self.parse_inner_list()?;
-        match ls.len() > 0 {
-            true => Ok(ls.to_expr()),
+        let list = self.parse_inner_list()?;
+        match list.len() > 0 {
+            true => Ok(list.to_expr()),
             false => Ok(Expr::EmptyList),
         }
     }
 
     fn parse_if(&mut self) -> Result<Expr, EvalErr> {
-        let (p, c, a) = self.parse_inner_list()?.into_iter().get_three_or_else(|| {
-            EvalErr::InvalidArgs("'if' expression. expected condition, predicate, and consequence")
-        })?;
-        Ok(If::new(p, c, a).to_expr())
+        let (predicate, consequence, alternative) =
+            self.parse_inner_list()?.into_iter().get_three_or_else(|| {
+                EvalErr::InvalidArgs(
+                    "'if' expression. expected condition, predicate, and consequence",
+                )
+            })?;
+        Ok(If::new(predicate, consequence, alternative).to_expr())
     }
 
     fn parse_cond(&mut self) -> Result<Expr, EvalErr> {
-        let ls = self.parse_inner_list()?;
-        match ls.len() > 0 {
-            true => Ok(Cond::new(ls).to_expr()),
+        let clauses = self.parse_inner_list()?;
+        match clauses.len() > 0 {
+            true => Ok(Cond::new(clauses).to_expr()),
             false => Err(EvalErr::InvalidArgs("'cond' expression. expected clauses.")),
         }
     }
 
     fn parse_lambda(&mut self) -> Result<Expr, EvalErr> {
-        let (first, rest) = self
+        let (params, body) = self
             .parse_inner_list()?
             .into_iter()
             .get_one_and_rest_or_else(|| {
                 EvalErr::InvalidArgs("'lambda' expression. expected parameters and body")
             })?;
-        Ok(Lambda::new(first, rest.collect()).to_expr())
+        Ok(Lambda::new(params, body.collect()).to_expr())
     }
 
     fn parse_define(&mut self) -> Result<Expr, EvalErr> {
-        let (first, rest) = self
+        let (identifier, body) = self
             .parse_inner_list()?
             .into_iter()
             .get_one_and_rest_or_else(|| {
                 EvalErr::InvalidArgs("'define' expression. expected identifier and value")
             })?;
-        Ok(Define::new(first, rest.collect()).to_expr())
+        Ok(Define::new(identifier, body.collect()).to_expr())
     }
 
     fn parse_assignment(&mut self) -> Result<Expr, EvalErr> {
@@ -186,6 +194,16 @@ impl Parser {
             EvalErr::InvalidArgs("'set!' expression. expected identifier and value")
         })?;
         Ok(Assignment::new(first, second).to_expr())
+    }
+
+    fn parse_let(&mut self) -> Result<Expr, EvalErr> {
+        let (bindings, body) = self
+            .parse_inner_list()?
+            .into_iter()
+            .get_one_and_rest_or_else(|| {
+                EvalErr::InvalidArgs("'let' expression. expected bindings and body")
+            })?;
+        Ok(Let::new(bindings, body.collect()).to_expr())
     }
 
     fn parse_begin(&mut self) -> Result<Expr, EvalErr> {
@@ -216,6 +234,7 @@ impl Parser {
             t @ Token::Assignment
             | t @ Token::Lambda
             | t @ Token::Define
+            | t @ Token::Let
             | t @ Token::If
             | t @ Token::And
             | t @ Token::Cond

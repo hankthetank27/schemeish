@@ -26,6 +26,7 @@ impl Printable for Token {
             Token::RParen => ")".into(),
             Token::If => "if".into(),
             Token::Define => "define".into(),
+            Token::Let => "let".into(),
             Token::Lambda => "lambda".into(),
             Token::Assignment => "set!".into(),
             Token::And => "and".into(),
@@ -76,7 +77,7 @@ impl Printable for Vec<Expr> {
             .iter()
             .map(|e| e.printable())
             .reduce(|curr, next| format!("{} {}", curr, next))
-            .unwrap();
+            .unwrap_or_else(|| "".to_string());
         format!("'({})", ls)
     }
 }
@@ -87,7 +88,7 @@ impl Printable for Vec<String> {
             .iter()
             .map(|e| e.to_string())
             .reduce(|curr, next| format!("{} {}", curr, next))
-            .unwrap();
+            .unwrap_or_else(|| "".to_string());
         format!("'({})", ls)
     }
 }
@@ -101,7 +102,7 @@ impl Printable for Pair {
                     ls.iter()
                         .map(|e| e.printable())
                         .reduce(|curr, next| format!("{} {}", curr, next))
-                        .unwrap()
+                        .unwrap_or_else(|| "".to_string())
                 ),
                 None => Expr::EmptyList.printable(),
             },

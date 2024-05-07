@@ -14,6 +14,7 @@ use crate::special_form::Cond;
 use crate::special_form::Define;
 use crate::special_form::If;
 use crate::special_form::Lambda;
+use crate::special_form::Let;
 use crate::special_form::Or;
 
 pub trait IterInnerVal {
@@ -196,5 +197,11 @@ impl ToExpr for Cond {
 impl ToExpr for Begin {
     fn to_expr(self) -> Expr {
         Expr::Begin(self)
+    }
+}
+
+impl ToExpr for Let {
+    fn to_expr(self) -> Expr {
+        Expr::Let(Box::new(self))
     }
 }

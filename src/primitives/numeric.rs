@@ -3,8 +3,9 @@ use core::f64;
 use crate::{
     error::EvalErr,
     evaluator::Args,
+    lexer::Token,
     parser::Expr,
-    utils::{IterInnerVal, SoftIter, ToExpr},
+    utils::{GetVals, IterInnerVal, SoftIter, ToExpr},
 };
 
 pub fn add(args: Args) -> Result<Expr, EvalErr> {
@@ -73,5 +74,15 @@ where
             Ok(cmp(first, sum_rest).to_expr())
         }
         None => Err(err),
+    }
+}
+
+pub fn check_number(args: Args) -> Result<Expr, EvalErr> {
+    match args
+        .into_iter()
+        .get_one_or_else(|| EvalErr::InvalidArgs("'number?' expected argument"))?
+    {
+        Expr::Atom(Token::Number(_)) => Ok(true.to_expr()),
+        _ => Ok(false.to_expr()),
     }
 }

@@ -156,6 +156,57 @@ fn cond_to_if(exprs: &mut Peekable<IntoIter<Expr>>) -> Result<Expr, EvalErr> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Let {
+    bindings: Expr,
+    body: Vec<Expr>,
+}
+
+impl Let {
+    pub fn new(bindings: Expr, body: Vec<Expr>) -> Self {
+        Let { bindings, body }
+    }
+}
+
+impl SpecialForm for Let {
+    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        match self.bindings {
+            Expr::List(bindings) => {
+                let (params, mut values) = unzip_list(bindings)?;
+
+                values.insert(
+                    0,
+                    Lambda::new(params.to_expr(), self.body)
+                        .to_expr()
+                        .into_list()?,
+                );
+
+                eval(values.to_expr(), env)
+            }
+            expr => Err(EvalErr::TypeError("list", expr)),
+        }
+    }
+}
+
+fn unzip_list(exprs: Vec<Expr>) -> Result<(Vec<Expr>, Vec<Expr>), EvalErr> {
+    exprs
+        .into_iter()
+        .try_fold(
+            (vec![], vec![]),
+            |(mut params, mut values), expr_pair| match expr_pair {
+                Expr::List(binding) => {
+                    let (param, value) = binding.into_iter().get_two_or_else(|| {
+                        EvalErr::InvalidArgs("'let' expression. expected bindings as pairs")
+                    })?;
+                    params.push(param);
+                    values.push(value);
+                    Ok((params, values))
+                }
+                expr => Err(EvalErr::TypeError("list", expr)),
+            },
+        )
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Assignment {
     identifier: Expr,
     value: Expr,

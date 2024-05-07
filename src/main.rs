@@ -127,6 +127,15 @@ mod test {
     }
 
     #[test]
+    fn simple_let() {
+        let scm = "(let ((x 2) (y 3)) (* x y))";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        assert_eq!(res, Atom(Number(6.0)));
+    }
+
+    #[test]
     fn curry_and_comment() {
         let scm = "
             (((lambda (x) ;this has a comment
