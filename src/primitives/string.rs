@@ -15,6 +15,7 @@ pub fn equal(args: Args) -> Result<Expr, EvalErr> {
             Expr::Atom(Token::Str(x) | Token::Symbol(x)),
             Expr::Atom(Token::Str(y) | Token::Symbol(y)),
         ) => Ok((x == y).to_expr()),
+        (Expr::Atom(Token::Number(x)), Expr::Atom(Token::Number(y))) => Ok((x == y).to_expr()),
         _ => Ok(false.to_expr()),
     }
 }

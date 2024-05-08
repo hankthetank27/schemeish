@@ -8,7 +8,7 @@ use crate::evaluator::eval;
 use crate::lexer::TokenStream;
 use crate::parser::Expr;
 use crate::parser::Parser;
-use crate::primitives::{compare, io, numeric, pair, prelude, string, typecheck};
+use crate::primitives::{compare, core_lang, io, numeric, pair, prelude, string, typecheck};
 use crate::procedure::{PSig, Primitive};
 use crate::utils::ToExpr;
 
@@ -66,6 +66,7 @@ impl EnvRef {
 
     fn install_primitives(self) -> EnvRef {
         let primitives = [
+            ("apply", core_lang::apply as PSig),
             ("+", numeric::add as PSig),
             ("-", numeric::subtract as PSig),
             ("*", numeric::multiply as PSig),

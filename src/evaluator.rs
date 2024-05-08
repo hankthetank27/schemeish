@@ -33,7 +33,7 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
         }
         // self evaluating
         Expr::Quoted(x) => Ok(*x),
-        x @ Expr::Atom(_) | x @ Expr::EmptyList => Ok(x),
+        x @ Expr::Atom(_) | x @ Expr::Dotted(_) | x @ Expr::EmptyList => Ok(x),
         x => Err(EvalErr::TypeError("expression", x)),
     }
 }

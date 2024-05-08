@@ -132,9 +132,11 @@ fn cond_to_if(exprs: &mut Peekable<IntoIter<Expr>>) -> Result<Expr, EvalErr> {
     match exprs.next() {
         Some(expr) => match expr {
             Expr::List(expr) => {
-                let (predicate, consequence) = expr.into_iter().get_two_or_else(|| {
+                let (predicate, consequence) = expr.into_iter().get_one_and_rest_or_else(|| {
                     EvalErr::InvalidArgs("'cond'. clauses expcted two be lists of two values")
                 })?;
+
+                let consequence = Begin::new(consequence.collect()).to_expr().into_list()?;
 
                 if exprs.peek().is_some() {
                     If::new(predicate, consequence, cond_to_if(exprs)?)

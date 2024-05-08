@@ -1,3 +1,4 @@
+use std::mem;
 use std::rc::Rc;
 use std::vec;
 
@@ -41,6 +42,47 @@ impl Pair {
             }
             _ => None,
         }
+    }
+
+    fn pop(&mut self) -> Option<Expr> {
+        let current = mem::replace(&mut self.car, Expr::EmptyList);
+        let next = mem::replace(&mut self.cdr, Expr::EmptyList);
+        match next {
+            Expr::Dotted(next) => {
+                let next = own_rc_pair(next);
+                self.car = next.car;
+                self.cdr = next.cdr;
+            }
+            x => {
+                self.car = x;
+                self.cdr = Expr::EmptyList;
+            }
+        };
+        match current {
+            Expr::EmptyList => None,
+            x => Some(x),
+        }
+    }
+
+    pub fn into_iter(self) -> IntoIter {
+        IntoIter(self)
+    }
+}
+
+pub fn own_rc_pair(rc: Rc<Pair>) -> Pair {
+    match Rc::try_unwrap(rc) {
+        Ok(p) => p,
+        Err(rc) => rc.as_ref().clone(),
+    }
+}
+
+pub struct IntoIter(Pair);
+
+impl Iterator for IntoIter {
+    type Item = Expr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.pop()
     }
 }
 
@@ -140,6 +182,7 @@ pub fn set_cdr(args: Args) -> Result<Expr, EvalErr> {
             (*(Rc::into_raw(p) as *mut Pair)).cdr = source;
             Ok(Expr::Void)
         },
+        // Expr::EmptyList => Ok(Pair::new(first, second).to_expr())
         expr => Err(EvalErr::TypeError("pair", expr)),
     }
 }
