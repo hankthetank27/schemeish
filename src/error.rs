@@ -13,6 +13,7 @@ pub enum EvalErr {
     UnexpectedToken(String),
     MalformedToken(&'static str),
     LexingFailures(Vec<EvalErr>),
+    RuntimeException(String),
     MapAsRecoverable,
     UnexpectedEnd,
     NilEnv,
@@ -28,6 +29,7 @@ impl fmt::Display for EvalErr {
 
 fn make_message(err: &EvalErr) -> String {
     match err {
+        EvalErr::RuntimeException(m) => m.to_owned(),
         EvalErr::UnboundVar(var) => format!("accessing unbound variable {var}"),
         EvalErr::InvalidExpr(expr) => format!("invalid expression {}", expr.printable()),
         EvalErr::InvalidArgs(msg) => format!("invalid argument, {msg}"),

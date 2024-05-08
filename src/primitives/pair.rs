@@ -159,23 +159,3 @@ pub fn list(args: Args) -> Result<Expr, EvalErr> {
 
     Ok(map_to_list(first, rest.peekable()))
 }
-
-pub fn null_check(args: Args) -> Result<Expr, EvalErr> {
-    match args
-        .into_iter()
-        .get_one_or_else(|| EvalErr::InvalidArgs("'nil?'. expected argument"))?
-    {
-        Expr::EmptyList => Ok(true.to_expr()),
-        _ => Ok(false.to_expr()),
-    }
-}
-
-pub fn pair_check(args: Args) -> Result<Expr, EvalErr> {
-    match args
-        .into_iter()
-        .get_one_or_else(|| EvalErr::InvalidArgs("'pair?'. expected argument"))?
-    {
-        Expr::Dotted(_) => Ok(true.to_expr()),
-        _ => Ok(false.to_expr()),
-    }
-}

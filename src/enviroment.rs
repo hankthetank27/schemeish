@@ -4,8 +4,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::error::EvalErr;
+use crate::evaluator::eval;
+use crate::lexer::TokenStream;
 use crate::parser::Expr;
-use crate::primitives::{compare, io, numeric, pair, string};
+use crate::parser::Parser;
+use crate::primitives::{compare, io, numeric, pair, prelude, string, typecheck};
 use crate::procedure::{PSig, Primitive};
 use crate::utils::ToExpr;
 
@@ -72,19 +75,23 @@ impl EnvRef {
             (">=", numeric::greater_than_or_eq as PSig),
             ("<", numeric::less_than as PSig),
             ("<=", numeric::less_than_or_eq as PSig),
-            ("number?", numeric::check_number as PSig),
+            ("remainder", numeric::remainder as PSig),
             ("cons", pair::cons as PSig),
             ("car", pair::car as PSig),
             ("cdr", pair::cdr as PSig),
             ("set-car!", pair::set_car as PSig),
             ("set-cdr!", pair::set_cdr as PSig),
             ("list", pair::list as PSig),
-            ("null?", pair::null_check as PSig),
-            ("pair?", pair::pair_check as PSig),
             ("display", io::display as PSig),
+            ("error", io::error as PSig),
             ("equal?", string::equal as PSig),
             ("eq?", string::equal as PSig),
             ("not", compare::not as PSig),
+            ("symbol?", typecheck::symbol as PSig),
+            ("string?", typecheck::string as PSig),
+            ("number?", typecheck::number as PSig),
+            ("null?", typecheck::null as PSig),
+            ("pair?", typecheck::pair as PSig),
         ];
 
         for (name, proc) in primitives.into_iter() {
@@ -93,6 +100,18 @@ impl EnvRef {
         }
 
         self
+    }
+
+    pub fn import_prelude(&self) -> Result<(), EvalErr> {
+        let tokens = TokenStream::new(prelude::PRELUDE).collect_tokens()?;
+        let exprs = Parser::new(tokens).parse()?;
+        for exp in exprs.into_iter() {
+            match eval(exp, &self) {
+                Ok(_) => (),
+                Err(err) => eprintln!("{err}"),
+            }
+        }
+        Ok(())
     }
 }
 

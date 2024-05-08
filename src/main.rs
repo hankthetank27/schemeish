@@ -42,6 +42,12 @@ fn run_from_file(file: &str) {
     });
 
     let global = EnvRef::global();
+
+    global.import_prelude().unwrap_or_else(|err| {
+        eprintln!("{err}");
+        process::exit(1);
+    });
+
     for exp in exprs.into_iter() {
         match evaluator::eval(exp, &global) {
             Ok(_) => (),
@@ -399,7 +405,7 @@ mod test {
     }
 
     #[test]
-    fn mut_list_can_cycle() {
+    fn mut_list_can_create_cycle_without_panic() {
         let scm = "(define x (list 1 2 3))
                     (set-cdr! (cdr (cdr x)) x)";
         eval_test(scm);

@@ -1,4 +1,5 @@
 use std::io::{self, Write};
+use std::process;
 
 use crate::enviroment::EnvRef;
 use crate::evaluator;
@@ -20,6 +21,11 @@ impl Repl {
     pub fn run(&self) {
         println!("Schemeish v0.1.0");
         println!("Welcome :)");
+
+        self.global_env.import_prelude().unwrap_or_else(|err| {
+            eprintln!("{err}");
+            process::exit(1);
+        });
 
         loop {
             print!("> ");

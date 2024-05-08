@@ -3,7 +3,6 @@ use core::f64;
 use crate::{
     error::EvalErr,
     evaluator::Args,
-    lexer::Token,
     parser::Expr,
     utils::{GetVals, IterInnerVal, SoftIter, ToExpr},
 };
@@ -46,6 +45,14 @@ pub fn equality(args: Args) -> Result<Expr, EvalErr> {
     }
 }
 
+pub fn remainder(args: Args) -> Result<Expr, EvalErr> {
+    let (first, second) = args
+        .into_nums()?
+        .into_iter()
+        .get_two_or_else(|| EvalErr::InvalidArgs("Procedure requires at least one argument"))?;
+    Ok((first % second).to_expr())
+}
+
 pub fn greater_than(args: Args) -> Result<Expr, EvalErr> {
     cmp_first_to_rest(args, |first, rest| first > rest)
 }
@@ -74,15 +81,5 @@ where
             Ok(cmp(first, sum_rest).to_expr())
         }
         None => Err(err),
-    }
-}
-
-pub fn check_number(args: Args) -> Result<Expr, EvalErr> {
-    match args
-        .into_iter()
-        .get_one_or_else(|| EvalErr::InvalidArgs("'number?' expected argument"))?
-    {
-        Expr::Atom(Token::Number(_)) => Ok(true.to_expr()),
-        _ => Ok(false.to_expr()),
     }
 }

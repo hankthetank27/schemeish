@@ -75,38 +75,38 @@ where
     }
 }
 
-pub trait GetVals<F>
+pub trait GetVals<F, T>
 where
     F: Fn() -> EvalErr,
 {
-    fn get_one_or_else(&mut self, err: F) -> Result<Expr, EvalErr>;
-    fn get_two_or_else(&mut self, err: F) -> Result<(Expr, Expr), EvalErr>;
-    fn get_three_or_else(&mut self, err: F) -> Result<(Expr, Expr, Expr), EvalErr>;
-    fn get_one_and_rest_or_else(self, err: F) -> Result<(Expr, IntoIter<Expr>), EvalErr>;
+    fn get_one_or_else(&mut self, err: F) -> Result<T, EvalErr>;
+    fn get_two_or_else(&mut self, err: F) -> Result<(T, T), EvalErr>;
+    fn get_three_or_else(&mut self, err: F) -> Result<(T, T, T), EvalErr>;
+    fn get_one_and_rest_or_else(self, err: F) -> Result<(T, IntoIter<T>), EvalErr>;
 }
 
-impl<F> GetVals<F> for IntoIter<Expr>
+impl<F, T> GetVals<F, T> for IntoIter<T>
 where
     F: Fn() -> EvalErr,
 {
-    fn get_one_or_else(&mut self, err: F) -> Result<Expr, EvalErr> {
+    fn get_one_or_else(&mut self, err: F) -> Result<T, EvalErr> {
         self.next().ok_or_else(err)
     }
 
-    fn get_two_or_else(&mut self, err: F) -> Result<(Expr, Expr), EvalErr> {
+    fn get_two_or_else(&mut self, err: F) -> Result<(T, T), EvalErr> {
         let first = self.next().ok_or_else(&err)?;
         let second = self.next().ok_or_else(&err)?;
         Ok((first, second))
     }
 
-    fn get_three_or_else(&mut self, err: F) -> Result<(Expr, Expr, Expr), EvalErr> {
+    fn get_three_or_else(&mut self, err: F) -> Result<(T, T, T), EvalErr> {
         let first = self.next().ok_or_else(&err)?;
         let second = self.next().ok_or_else(&err)?;
         let third = self.next().ok_or_else(&err)?;
         Ok((first, second, third))
     }
 
-    fn get_one_and_rest_or_else(mut self, err: F) -> Result<(Expr, IntoIter<Expr>), EvalErr> {
+    fn get_one_and_rest_or_else(mut self, err: F) -> Result<(T, IntoIter<T>), EvalErr> {
         let first = self.next().ok_or_else(&err)?;
         Ok((first, self))
     }

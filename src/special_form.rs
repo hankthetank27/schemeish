@@ -171,7 +171,7 @@ impl SpecialForm for Let {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         match self.bindings {
             Expr::List(bindings) => {
-                let (params, mut values) = unzip_list(bindings)?;
+                let (params, mut values) = try_unzip_list(bindings)?;
 
                 values.insert(
                     0,
@@ -187,12 +187,12 @@ impl SpecialForm for Let {
     }
 }
 
-fn unzip_list(exprs: Vec<Expr>) -> Result<(Vec<Expr>, Vec<Expr>), EvalErr> {
+fn try_unzip_list(exprs: Vec<Expr>) -> Result<(Vec<Expr>, Vec<Expr>), EvalErr> {
     exprs
         .into_iter()
-        .try_fold(
-            (vec![], vec![]),
-            |(mut params, mut values), expr_pair| match expr_pair {
+        .try_fold((vec![], vec![]), |prev, expr_pair| {
+            let (mut params, mut values) = prev;
+            match expr_pair {
                 Expr::List(binding) => {
                     let (param, value) = binding.into_iter().get_two_or_else(|| {
                         EvalErr::InvalidArgs("'let' expression. expected bindings as pairs")
@@ -202,8 +202,8 @@ fn unzip_list(exprs: Vec<Expr>) -> Result<(Vec<Expr>, Vec<Expr>), EvalErr> {
                     Ok((params, values))
                 }
                 expr => Err(EvalErr::TypeError("list", expr)),
-            },
-        )
+            }
+        })
 }
 
 #[derive(Debug, Clone, PartialEq)]
