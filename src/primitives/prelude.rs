@@ -32,18 +32,13 @@ pub const PRELUDE: &str = "
 (define (odd? num)  (= (remainder num 2) 1))
 (define (even? num) (= (remainder num 2) 0))
 (define (abs num) (if (negative? num) (- num) num))
-(define (gcd a b) (if (= b 0) (abs a) (gcd b (modulo a b))))
-(define (lcm a b) (/ (abs (* a b)) (gcd a b)))
 
 ;; lists
-(define (list-ref s i) (list-copy s i (+ i 1)))
 (define (map func lst) (foldr (lambda (x y) (cons (func x) y)) '() lst))
 (define (filter pred lst) (foldr (lambda (x y) (if (pred x) (cons x y) y)) '() lst))
-(define (reverse lst) (fold (flip cons) '() lst))
 (define (length lst) (fold (lambda (x y) (+ x 1)) 0 lst))
 (define (list-tail lst n) (if (<= n 0) lst (list-tail (cdr lst) (- n 1))))
 (define (list-head lst n) (if (<= n 0) '() (cons (car lst) (list-head (cdr lst) (- n 1)))))
-(define (list-ref lst n) (car (list-tail lst n)))
 
 
 (define (mem-helper pred op) (lambda (acc next) (if (and (not acc) (pred (op next))) next acc)))
