@@ -24,7 +24,7 @@ fn main() {
 
     match runtime {
         Runtime::File(f) => run_from_file(&f),
-        Runtime::Repl => Repl::new().run(),
+        Runtime::Repl => Repl::default().run(),
     }
 }
 
@@ -88,6 +88,7 @@ mod test {
             .parse()
             .unwrap();
         let global = EnvRef::global();
+        global.import_prelude().unwrap();
         exprs
             .into_iter()
             .map(|e| evaluator::eval(e, &global).unwrap_or_else(|err| panic!("{err}")))
@@ -99,6 +100,7 @@ mod test {
             .parse()
             .unwrap();
         let global = EnvRef::global();
+        global.import_prelude().unwrap();
         exprs
             .into_iter()
             .map(|e| evaluator::eval(e, &global))

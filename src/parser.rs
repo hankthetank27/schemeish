@@ -43,7 +43,7 @@ impl Expr {
         Ok(Expr::List(vec![self]))
     }
 
-    fn is_valid_single(self) -> Result<Expr, EvalErr> {
+    fn try_valid_single(self) -> Result<Expr, EvalErr> {
         match self {
             f @ Expr::Atom(Token::Else) => Err(EvalErr::UnexpectedToken(f.printable())),
             t => Ok(t),
@@ -66,7 +66,7 @@ impl Parser {
 
     pub fn parse(mut self) -> Result<Vec<Expr>, EvalErr> {
         while self.tokens.peek().is_some() {
-            let expr = self.parse_from_token()?.is_valid_single()?;
+            let expr = self.parse_from_token()?.try_valid_single()?;
             self.parsed_exprs.push(expr)
         }
         Ok(self.parsed_exprs)
@@ -145,7 +145,7 @@ impl Parser {
 
     fn parse_list(&mut self) -> Result<Expr, EvalErr> {
         let list = self.parse_inner_list()?;
-        match list.len() > 0 {
+        match !list.is_empty() {
             true => Ok(list.to_expr()),
             false => Ok(Expr::EmptyList),
         }
@@ -163,7 +163,7 @@ impl Parser {
 
     fn parse_cond(&mut self) -> Result<Expr, EvalErr> {
         let clauses = self.parse_inner_list()?;
-        match clauses.len() > 0 {
+        match !clauses.is_empty() {
             true => Ok(Cond::new(clauses).to_expr()),
             false => Err(EvalErr::InvalidArgs("'cond' expression. expected clauses.")),
         }

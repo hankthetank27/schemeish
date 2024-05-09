@@ -1,3 +1,4 @@
+use std::iter::IntoIterator;
 use std::mem;
 use std::rc::Rc;
 use std::vec;
@@ -20,7 +21,6 @@ impl Pair {
         Pair { car, cdr }
     }
 
-    // printing methods
     pub fn try_list(&self) -> MaybeList {
         match self.check_if_list() {
             Some(ls) => MaybeList::List(ls),
@@ -28,7 +28,6 @@ impl Pair {
         }
     }
 
-    // ^^
     fn check_if_list(&self) -> Option<PairList> {
         match &self.cdr {
             Expr::Dotted(next) => {
@@ -63,10 +62,6 @@ impl Pair {
             x => Some(x),
         }
     }
-
-    pub fn into_iter(self) -> IntoIter {
-        IntoIter(self)
-    }
 }
 
 pub fn own_rc_pair(rc: Rc<Pair>) -> Pair {
@@ -83,6 +78,15 @@ impl Iterator for IntoIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.pop()
+    }
+}
+
+impl IntoIterator for Pair {
+    type Item = Expr;
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter(self)
     }
 }
 

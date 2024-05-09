@@ -1,4 +1,4 @@
-pub const PRELUDE: &'static str = "
+pub const PRELUDE: &str = "
 ;; some functions are from:
 ;; https://en.wikibooks.org/wiki/Write_Yourself_a_Scheme_in_48_Hours/Towards_a_Standard_Library
 

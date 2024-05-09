@@ -20,7 +20,7 @@ pub fn subtract(args: Args) -> Result<Expr, EvalErr> {
     match nums.next() {
         Some(first) => Ok(nums.fold(first, |diff, num| diff - num).to_expr()),
         None => Err(EvalErr::InvalidArgs(
-            "Procedure requires at least one argument",
+            "'-'. procedure requires at least one argument",
         )),
     }
 }
@@ -30,7 +30,7 @@ pub fn divide(args: Args) -> Result<Expr, EvalErr> {
     match nums.next() {
         Some(first) => Ok(nums.fold(first, |quot, num| quot / num).to_expr()),
         None => Err(EvalErr::InvalidArgs(
-            "Procedure requires at least one argument",
+            "'/'. procedure requires at least one argument",
         )),
     }
 }
@@ -40,17 +40,24 @@ pub fn equality(args: Args) -> Result<Expr, EvalErr> {
     match nums.first() {
         Some(first) => Ok(nums.iter().all(|num| num == first).to_expr()),
         None => Err(EvalErr::InvalidArgs(
-            "Procedure requires at least one argument",
+            "'='. procedure requires at least one argument",
         )),
     }
 }
 
 pub fn remainder(args: Args) -> Result<Expr, EvalErr> {
-    let (first, second) = args
+    let (x, y) = args.into_nums()?.into_iter().get_two_or_else(|| {
+        EvalErr::InvalidArgs("'remainder'. procedure requires two arguments")
+    })?;
+    Ok((x % y).to_expr())
+}
+
+pub fn modulo(args: Args) -> Result<Expr, EvalErr> {
+    let (x, y) = args
         .into_nums()?
         .into_iter()
-        .get_two_or_else(|| EvalErr::InvalidArgs("Procedure requires at least one argument"))?;
-    Ok((first % second).to_expr())
+        .get_two_or_else(|| EvalErr::InvalidArgs("'modulo'. procedure requires two arguments"))?;
+    Ok(((x % y + y) % y).to_expr())
 }
 
 pub fn greater_than(args: Args) -> Result<Expr, EvalErr> {

@@ -11,6 +11,12 @@ pub struct Repl {
     global_env: EnvRef,
 }
 
+impl Default for Repl {
+    fn default() -> Self {
+        Repl::new()
+    }
+}
+
 impl Repl {
     pub fn new() -> Self {
         Repl {
