@@ -16,6 +16,7 @@ use crate::special_form::If;
 use crate::special_form::Lambda;
 use crate::special_form::Let;
 use crate::special_form::Or;
+use crate::special_form::SpecialForm;
 
 pub trait IterInnerVal {
     fn into_nums(self) -> Result<Vec<f64>, EvalErr>;
@@ -136,7 +137,7 @@ impl ToExpr for bool {
 
 impl ToExpr for Proc {
     fn to_expr(self) -> Expr {
-        Expr::Proc(self)
+        Expr::Proc(Box::new(self))
     }
 }
 
@@ -154,54 +155,54 @@ impl ToExpr for Pair {
 
 impl ToExpr for If {
     fn to_expr(self) -> Expr {
-        Expr::If(Box::new(self))
+        Expr::SpecialForm(Box::new(SpecialForm::If(self)))
     }
 }
 
 impl ToExpr for Lambda {
     fn to_expr(self) -> Expr {
-        Expr::Lambda(Box::new(self))
+        Expr::SpecialForm(Box::new(SpecialForm::Lambda(self)))
     }
 }
 
 impl ToExpr for Define {
     fn to_expr(self) -> Expr {
-        Expr::Define(Box::new(self))
+        Expr::SpecialForm(Box::new(SpecialForm::Define(self)))
     }
 }
 
 impl ToExpr for Assignment {
     fn to_expr(self) -> Expr {
-        Expr::Assignment(Box::new(self))
+        Expr::SpecialForm(Box::new(SpecialForm::Assignment(self)))
     }
 }
 
 impl ToExpr for And {
     fn to_expr(self) -> Expr {
-        Expr::And(self)
+        Expr::SpecialForm(Box::new(SpecialForm::And(self)))
     }
 }
 
 impl ToExpr for Or {
     fn to_expr(self) -> Expr {
-        Expr::Or(self)
+        Expr::SpecialForm(Box::new(SpecialForm::Or(self)))
     }
 }
 
 impl ToExpr for Cond {
     fn to_expr(self) -> Expr {
-        Expr::Cond(self)
+        Expr::SpecialForm(Box::new(SpecialForm::Cond(self)))
     }
 }
 
 impl ToExpr for Begin {
     fn to_expr(self) -> Expr {
-        Expr::Begin(self)
+        Expr::SpecialForm(Box::new(SpecialForm::Begin(self)))
     }
 }
 
 impl ToExpr for Let {
     fn to_expr(self) -> Expr {
-        Expr::Let(Box::new(self))
+        Expr::SpecialForm(Box::new(SpecialForm::Let(self)))
     }
 }

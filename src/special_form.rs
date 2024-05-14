@@ -12,8 +12,37 @@ use crate::{
     utils::{GetVals, IterInnerVal, ToExpr},
 };
 
-pub trait SpecialForm {
+#[derive(Debug, Clone, PartialEq)]
+pub enum SpecialForm {
+    Define(Define),
+    If(If),
+    Let(Let),
+    Lambda(Lambda),
+    Assignment(Assignment),
+    Begin(Begin),
+    Cond(Cond),
+    And(And),
+    Or(Or),
+}
+
+pub trait Eval {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr>;
+}
+
+impl Eval for SpecialForm {
+    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        match self {
+            SpecialForm::If(if_x) => if_x.eval(env),
+            SpecialForm::Cond(cond_x) => cond_x.eval(env),
+            SpecialForm::Define(def_x) => def_x.eval(env),
+            SpecialForm::Assignment(ass_x) => ass_x.eval(env),
+            SpecialForm::And(and_x) => and_x.eval(env),
+            SpecialForm::Begin(beg_x) => beg_x.eval(env),
+            SpecialForm::Let(let_x) => let_x.eval(env),
+            SpecialForm::Lambda(lam_x) => lam_x.eval(env),
+            SpecialForm::Or(or_x) => or_x.eval(env),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,7 +57,7 @@ impl Define {
     }
 }
 
-impl SpecialForm for Define {
+impl Eval for Define {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         let mut body = self.body.into_iter();
         match self.identifier {
@@ -71,7 +100,7 @@ impl Lambda {
     }
 }
 
-impl SpecialForm for Lambda {
+impl Eval for Lambda {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         match self.params {
             Expr::List(first_expr) => {
@@ -101,7 +130,7 @@ impl If {
     }
 }
 
-impl SpecialForm for If {
+impl Eval for If {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         match eval(self.predicate, env)? {
             Expr::Atom(Token::Boolean(true)) => eval(self.consequence, env),
@@ -122,7 +151,7 @@ impl Cond {
     }
 }
 
-impl SpecialForm for Cond {
+impl Eval for Cond {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         eval(cond_to_if(&mut self.clauses.into_iter().peekable())?, env)
     }
@@ -169,7 +198,7 @@ impl Let {
     }
 }
 
-impl SpecialForm for Let {
+impl Eval for Let {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         match self.bindings {
             Expr::List(bindings) => {
@@ -220,7 +249,7 @@ impl Assignment {
     }
 }
 
-impl SpecialForm for Assignment {
+impl Eval for Assignment {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         match self.identifier {
             Expr::Atom(Token::Symbol(identifier)) => {
@@ -242,7 +271,7 @@ impl Begin {
     }
 }
 
-impl SpecialForm for Begin {
+impl Eval for Begin {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         self.exprs
             .into_iter()
@@ -261,7 +290,7 @@ impl And {
     }
 }
 
-impl SpecialForm for And {
+impl Eval for And {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         for expr in self.body.into_iter() {
             match eval(expr, env)? {
@@ -285,7 +314,7 @@ impl Or {
     }
 }
 
-impl SpecialForm for Or {
+impl Eval for Or {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         for expr in self.body.into_iter() {
             match eval(expr, env)? {

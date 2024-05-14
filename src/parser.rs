@@ -7,7 +7,7 @@ use crate::lexer::Token;
 use crate::primitives::pair::Pair;
 use crate::print::Printable;
 use crate::procedure::Proc;
-use crate::special_form::{And, Assignment, Begin, Cond, Define, If, Lambda, Let, Or};
+use crate::special_form::{And, Assignment, Begin, Cond, Define, If, Lambda, Let, Or, SpecialForm};
 use crate::utils::{GetVals, ToExpr};
 
 // We treat any list that is expected to be evaluated as a procedure during parsing as a vector
@@ -21,21 +21,12 @@ pub enum Expr {
     // since these clone on getting values from env,
     // we want to allow multiple ownership with Rc to prevent deep cloning lists etc
     Dotted(Rc<Pair>), //TODO: Maybe Rc -> Rc<RefCell>? unsafe mutation seems to be ok for now...
-    Proc(Proc),       //TODO: Proc -> Rc<Proc>
-
+    Proc(Box<Proc>),  //TODO: Proc -> Rc<Proc>
+    SpecialForm(Box<SpecialForm>),
+    Quoted(Box<Expr>),
     Atom(Token),
     EmptyList,
     Void,
-    If(Box<If>),
-    Let(Box<Let>),
-    Define(Box<Define>),
-    Lambda(Box<Lambda>),
-    Assignment(Box<Assignment>),
-    Begin(Begin),
-    Cond(Cond),
-    And(And),
-    Or(Or),
-    Quoted(Box<Expr>),
 }
 
 impl Expr {

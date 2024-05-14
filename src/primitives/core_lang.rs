@@ -19,7 +19,7 @@ pub fn apply(args: evaluator::Args) -> Result<Expr, EvalErr> {
     let args = evaluator::Args::new(args, &env)?;
 
     match op {
-        Expr::Proc(proc) => match proc {
+        Expr::Proc(proc) => match *proc {
             Proc::Primitive(proc) => proc.call(args.eval()?),
             Proc::Compound(proc) => proc.call(args.eval()?),
         },

@@ -3,7 +3,7 @@ use crate::error::EvalErr;
 use crate::lexer::Token;
 use crate::parser::Expr;
 use crate::procedure::Proc;
-use crate::{special_form::SpecialForm, utils::GetVals};
+use crate::{special_form::Eval, utils::GetVals};
 
 pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
     match expr {
@@ -15,20 +15,9 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
                 .into_iter()
                 .get_one_and_rest_or_else(|| EvalErr::InvalidArgs("expected operation"))?;
             let args = Args::new(args.collect(), env)?;
-
             match op {
-                Expr::If(if_x) => if_x.eval(env),
-                Expr::Cond(cond_x) => cond_x.eval(env),
-                Expr::Define(def_x) => def_x.eval(env),
-                Expr::Assignment(ass_x) => ass_x.eval(env),
-                Expr::And(and_x) => and_x.eval(env),
-                Expr::Begin(beg_x) => beg_x.eval(env),
-                Expr::Let(let_x) => let_x.eval(env),
-                Expr::Lambda(lam_x) => lam_x.eval(env),
-                Expr::Or(or_x) => or_x.eval(env),
-                Expr::List(_) => apply(op, args),
-                Expr::Atom(Token::Symbol(_)) => apply(op, args),
-                op => Err(EvalErr::TypeError("procedure or special form", op)),
+                Expr::SpecialForm(x) => x.eval(env),
+                _ => apply(op, args),
             }
         }
         // self evaluating
@@ -39,8 +28,9 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
 }
 
 pub fn apply(op: Expr, args: Args) -> Result<Expr, EvalErr> {
-    match eval(op, &args.env()?)? {
-        Expr::Proc(proc) => match proc {
+    let env = &args.env()?;
+    match eval(op, env)? {
+        Expr::Proc(proc) => match *proc {
             Proc::Primitive(proc) => proc.call(args.eval()?),
             Proc::Compound(proc) => proc.call(args.eval()?),
         },
