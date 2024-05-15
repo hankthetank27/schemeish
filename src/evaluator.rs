@@ -3,17 +3,17 @@ use crate::error::EvalErr;
 use crate::lexer::Token;
 use crate::parser::Expr;
 use crate::procedure::Proc;
-use crate::{special_form::Eval, utils::GetVals};
+use crate::{special_form::Eval, utils::OwnIterVals};
 
 pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
     match expr {
         // variable lookup
         Expr::Atom(Token::Symbol(ref identifier)) => env.get_val(identifier),
         // procedure
-        Expr::List(ls) => {
+        Expr::Call(ls) => {
             let (op, args) = ls
                 .into_iter()
-                .get_one_and_rest_or_else(|| EvalErr::InvalidArgs("expected operation"))?;
+                .own_one_and_rest_or_else(|| EvalErr::InvalidArgs("expected operation"))?;
             let args = Args::new(args.collect(), env)?;
             match op {
                 Expr::SpecialForm(x) => x.eval(env),
@@ -22,7 +22,7 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
         }
         // self evaluating
         Expr::Quoted(x) => Ok(*x),
-        x @ Expr::Atom(_) | x @ Expr::Dotted(_) | x @ Expr::EmptyList => Ok(x),
+        x @ Expr::Atom(_) | x @ Expr::Pair(_) | x @ Expr::EmptyList => Ok(x),
         x => Err(EvalErr::TypeError("expression", x)),
     }
 }

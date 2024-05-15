@@ -8,7 +8,7 @@ use core::iter::Peekable;
 use crate::error::EvalErr;
 use crate::evaluator::Args;
 use crate::parser::Expr;
-use crate::utils::{GetVals, ToExpr};
+use crate::utils::{OwnIterVals, ToExpr};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pair {
@@ -30,7 +30,7 @@ impl Pair {
 
     fn check_if_list(&self) -> Option<PairList> {
         match &self.cdr {
-            Expr::Dotted(next) => {
+            Expr::Pair(next) => {
                 let cdr = next.check_if_list()?;
                 let node = Some(Box::new(Node::new(&self.car, cdr)));
                 Some(node)
@@ -47,7 +47,7 @@ impl Pair {
         let current = mem::replace(&mut self.car, Expr::EmptyList);
         let next = mem::replace(&mut self.cdr, Expr::EmptyList);
         match next {
-            Expr::Dotted(next) => {
+            Expr::Pair(next) => {
                 let next = own_rc_pair(next);
                 self.car = next.car;
                 self.cdr = next.cdr;
@@ -130,7 +130,7 @@ impl<'a> Iterator for Iter<'a> {
 pub fn cons(args: Args) -> Result<Expr, EvalErr> {
     let (first, second) = args
         .into_iter()
-        .get_two_or_else(|| EvalErr::InvalidArgs("'cons'. expected two arguments."))?;
+        .own_two_or_else(|| EvalErr::InvalidArgs("'cons'. expected two arguments."))?;
 
     Ok(Pair::new(first, second).to_expr())
 }
@@ -138,10 +138,10 @@ pub fn cons(args: Args) -> Result<Expr, EvalErr> {
 pub fn car(args: Args) -> Result<Expr, EvalErr> {
     let expr = args
         .into_iter()
-        .get_one_or_else(|| EvalErr::InvalidArgs("'car'. expected argument"))?;
+        .own_one_or_else(|| EvalErr::InvalidArgs("'car'. expected argument"))?;
 
     match expr {
-        Expr::Dotted(p) => Ok(p.as_ref().car.clone()),
+        Expr::Pair(p) => Ok(own_rc_pair(p).car),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access car of empty list")),
         x => Err(EvalErr::TypeError("pair", x)),
     }
@@ -150,10 +150,10 @@ pub fn car(args: Args) -> Result<Expr, EvalErr> {
 pub fn cdr(args: Args) -> Result<Expr, EvalErr> {
     let expr = args
         .into_iter()
-        .get_one_or_else(|| EvalErr::InvalidArgs("'cdr'. expected argument"))?;
+        .own_one_or_else(|| EvalErr::InvalidArgs("'cdr'. expected argument"))?;
 
     match expr {
-        Expr::Dotted(p) => Ok(p.as_ref().cdr.clone()),
+        Expr::Pair(p) => Ok(own_rc_pair(p).cdr),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access cdr of empty list")),
         x => Err(EvalErr::TypeError("pair", x)),
     }
@@ -165,10 +165,10 @@ pub fn cdr(args: Args) -> Result<Expr, EvalErr> {
 pub fn set_car(args: Args) -> Result<Expr, EvalErr> {
     let (target, source) = args
         .into_iter()
-        .get_two_or_else(|| EvalErr::InvalidArgs("'car'. expected argument"))?;
+        .own_two_or_else(|| EvalErr::InvalidArgs("'car'. expected argument"))?;
 
     match target {
-        Expr::Dotted(p) => unsafe {
+        Expr::Pair(p) => unsafe {
             (*(Rc::into_raw(p) as *mut Pair)).car = source;
             Ok(Expr::Void)
         },
@@ -179,10 +179,10 @@ pub fn set_car(args: Args) -> Result<Expr, EvalErr> {
 pub fn set_cdr(args: Args) -> Result<Expr, EvalErr> {
     let (target, source) = args
         .into_iter()
-        .get_two_or_else(|| EvalErr::InvalidArgs("'cdr'. expected argument"))?;
+        .own_two_or_else(|| EvalErr::InvalidArgs("'cdr'. expected argument"))?;
 
     match target {
-        Expr::Dotted(p) => unsafe {
+        Expr::Pair(p) => unsafe {
             (*(Rc::into_raw(p) as *mut Pair)).cdr = source;
             Ok(Expr::Void)
         },
@@ -202,7 +202,7 @@ pub fn list(args: Args) -> Result<Expr, EvalErr> {
 
     let (first, rest) = args
         .into_iter()
-        .get_one_and_rest_or_else(|| EvalErr::InvalidArgs("'list'. expected arguments"))?;
+        .own_one_and_rest_or_else(|| EvalErr::InvalidArgs("'list'. expected arguments"))?;
 
     Ok(map_to_list(first, rest.peekable()))
 }

@@ -4,7 +4,7 @@ use crate::{
     error::EvalErr,
     evaluator::Args,
     parser::Expr,
-    utils::{GetVals, IterInnerVal, SoftIter, ToExpr},
+    utils::{IterInnerVal, OwnIterVals, SoftIter, ToExpr},
 };
 
 pub fn add(args: Args) -> Result<Expr, EvalErr> {
@@ -46,7 +46,7 @@ pub fn equality(args: Args) -> Result<Expr, EvalErr> {
 }
 
 pub fn remainder(args: Args) -> Result<Expr, EvalErr> {
-    let (x, y) = args.into_nums()?.into_iter().get_two_or_else(|| {
+    let (x, y) = args.into_nums()?.into_iter().own_two_or_else(|| {
         EvalErr::InvalidArgs("'remainder'. procedure requires two arguments")
     })?;
     Ok((x % y).to_expr())
@@ -56,7 +56,7 @@ pub fn modulo(args: Args) -> Result<Expr, EvalErr> {
     let (x, y) = args
         .into_nums()?
         .into_iter()
-        .get_two_or_else(|| EvalErr::InvalidArgs("'modulo'. procedure requires two arguments"))?;
+        .own_two_or_else(|| EvalErr::InvalidArgs("'modulo'. procedure requires two arguments"))?;
     Ok(((x % y + y) % y).to_expr())
 }
 

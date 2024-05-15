@@ -1,5 +1,6 @@
 use std::iter::Peekable;
 use std::rc::Rc;
+use std::slice::Iter;
 use std::vec::IntoIter;
 
 use crate::error::EvalErr;
@@ -76,40 +77,68 @@ where
     }
 }
 
-pub trait GetVals<F, T>
+pub trait OwnIterVals<F, T>
 where
     F: Fn() -> EvalErr,
 {
-    fn get_one_or_else(&mut self, err: F) -> Result<T, EvalErr>;
-    fn get_two_or_else(&mut self, err: F) -> Result<(T, T), EvalErr>;
-    fn get_three_or_else(&mut self, err: F) -> Result<(T, T, T), EvalErr>;
-    fn get_one_and_rest_or_else(self, err: F) -> Result<(T, IntoIter<T>), EvalErr>;
+    fn own_one_or_else(&mut self, err: F) -> Result<T, EvalErr>;
+    fn own_two_or_else(&mut self, err: F) -> Result<(T, T), EvalErr>;
+    fn own_three_or_else(&mut self, err: F) -> Result<(T, T, T), EvalErr>;
+    fn own_one_and_rest_or_else(self, err: F) -> Result<(T, IntoIter<T>), EvalErr>;
 }
 
-impl<F, T> GetVals<F, T> for IntoIter<T>
+impl<F, T> OwnIterVals<F, T> for IntoIter<T>
 where
     F: Fn() -> EvalErr,
 {
-    fn get_one_or_else(&mut self, err: F) -> Result<T, EvalErr> {
+    fn own_one_or_else(&mut self, err: F) -> Result<T, EvalErr> {
         self.next().ok_or_else(err)
     }
 
-    fn get_two_or_else(&mut self, err: F) -> Result<(T, T), EvalErr> {
+    fn own_two_or_else(&mut self, err: F) -> Result<(T, T), EvalErr> {
         let first = self.next().ok_or_else(&err)?;
         let second = self.next().ok_or_else(&err)?;
         Ok((first, second))
     }
 
-    fn get_three_or_else(&mut self, err: F) -> Result<(T, T, T), EvalErr> {
+    fn own_three_or_else(&mut self, err: F) -> Result<(T, T, T), EvalErr> {
         let first = self.next().ok_or_else(&err)?;
         let second = self.next().ok_or_else(&err)?;
         let third = self.next().ok_or_else(&err)?;
         Ok((first, second, third))
     }
 
-    fn get_one_and_rest_or_else(mut self, err: F) -> Result<(T, IntoIter<T>), EvalErr> {
+    fn own_one_and_rest_or_else(mut self, err: F) -> Result<(T, IntoIter<T>), EvalErr> {
         let first = self.next().ok_or_else(&err)?;
         Ok((first, self))
+    }
+}
+
+impl<F, T> OwnIterVals<F, T> for Iter<'_, T>
+where
+    F: Fn() -> EvalErr,
+    T: Clone,
+{
+    fn own_one_or_else(&mut self, err: F) -> Result<T, EvalErr> {
+        Ok(self.next().ok_or_else(err)?.clone())
+    }
+
+    fn own_two_or_else(&mut self, err: F) -> Result<(T, T), EvalErr> {
+        let first = self.next().ok_or_else(&err)?;
+        let second = self.next().ok_or_else(&err)?;
+        Ok((first.clone(), second.clone()))
+    }
+
+    fn own_three_or_else(&mut self, err: F) -> Result<(T, T, T), EvalErr> {
+        let first = self.next().ok_or_else(&err)?;
+        let second = self.next().ok_or_else(&err)?;
+        let third = self.next().ok_or_else(&err)?;
+        Ok((first.clone(), second.clone(), third.clone()))
+    }
+
+    fn own_one_and_rest_or_else(mut self, err: F) -> Result<(T, IntoIter<T>), EvalErr> {
+        let first = self.next().ok_or_else(&err)?;
+        Ok((first.clone(), self.cloned().collect::<Vec<T>>().into_iter()))
     }
 }
 
@@ -143,13 +172,13 @@ impl ToExpr for Proc {
 
 impl ToExpr for Vec<Expr> {
     fn to_expr(self) -> Expr {
-        Expr::List(self)
+        Expr::Call(self)
     }
 }
 
 impl ToExpr for Pair {
     fn to_expr(self) -> Expr {
-        Expr::Dotted(Rc::new(self))
+        Expr::Pair(Rc::new(self))
     }
 }
 

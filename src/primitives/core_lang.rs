@@ -1,16 +1,16 @@
-use crate::{error::EvalErr, evaluator, parser::Expr, procedure::Proc, utils::GetVals};
+use crate::{error::EvalErr, evaluator, parser::Expr, procedure::Proc, utils::OwnIterVals};
 
 use super::pair::own_rc_pair;
 
 pub fn apply(args: evaluator::Args) -> Result<Expr, EvalErr> {
     let env = args.env()?;
-    let (op, args) = args.into_iter().get_two_or_else(|| {
+    let (op, args) = args.into_iter().own_two_or_else(|| {
         EvalErr::InvalidArgs("'apply'. expected operation and list of arguments")
     })?;
 
     let args = match args {
-        Expr::List(ls) => Ok(ls),
-        Expr::Dotted(p) => Ok(own_rc_pair(p).into_iter().collect()),
+        Expr::Call(ls) => Ok(ls),
+        Expr::Pair(p) => Ok(own_rc_pair(p).into_iter().collect()),
         _ => Err(EvalErr::InvalidArgs(
             "'apply'. expected list as second argument",
         )),

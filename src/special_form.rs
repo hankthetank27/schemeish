@@ -9,7 +9,7 @@ use crate::{
     parser::Expr,
     print::Printable,
     procedure::Compound,
-    utils::{GetVals, IterInnerVal, ToExpr},
+    utils::{IterInnerVal, OwnIterVals, ToExpr},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -70,14 +70,14 @@ impl Eval for Define {
                 env.insert_val(identifier.to_string(), eval(value, env)?)
             }
             //bind proc
-            Expr::List(args) => {
-                let (first, rest) = args.into_iter().get_one_and_rest_or_else(|| {
+            Expr::Call(args) => {
+                let (first, rest) = args.into_iter().own_one_and_rest_or_else(|| {
                     EvalErr::InvalidArgs("'define' procedure. expected parameters and body")
                 })?;
 
                 match first {
                     Expr::Atom(Token::Symbol(identifier)) => {
-                        let lambda = Lambda::new(Expr::List(rest.collect()), body.collect());
+                        let lambda = Lambda::new(Expr::Call(rest.collect()), body.collect());
                         env.insert_val(identifier.to_string(), lambda.eval(env)?)
                     }
                     _ => Err(EvalErr::InvalidArgs("expected identifier for procedure")),
@@ -103,7 +103,7 @@ impl Lambda {
 impl Eval for Lambda {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         match self.params {
-            Expr::List(first_expr) => {
+            Expr::Call(first_expr) => {
                 let proc_args = first_expr.into_strings()?;
                 Ok(Compound::new(self.body, proc_args, env.clone_rc()?).to_expr())
             }
@@ -160,23 +160,23 @@ impl Eval for Cond {
 fn cond_to_if(exprs: &mut Peekable<IntoIter<Expr>>) -> Result<Expr, EvalErr> {
     match exprs.next() {
         Some(expr) => match expr {
-            Expr::List(expr) => {
-                let (predicate, consequence) = expr.into_iter().get_one_and_rest_or_else(|| {
+            Expr::Call(expr) => {
+                let (predicate, consequence) = expr.into_iter().own_one_and_rest_or_else(|| {
                     EvalErr::InvalidArgs("'cond'. clauses expcted two be lists of two values")
                 })?;
 
-                let consequence = Begin::new(consequence.collect()).to_expr().into_list()?;
+                let consequence = Begin::new(consequence.collect()).to_expr().into_call()?;
 
                 if exprs.peek().is_some() {
                     If::new(predicate, consequence, cond_to_if(exprs)?)
                         .to_expr()
-                        .into_list()
+                        .into_call()
                 } else {
                     match predicate {
                         Expr::Atom(Token::Else) => Ok(consequence),
                         _ => If::new(predicate, consequence, cond_to_if(exprs)?)
                             .to_expr()
-                            .into_list(),
+                            .into_call(),
                     }
                 }
             }
@@ -201,14 +201,14 @@ impl Let {
 impl Eval for Let {
     fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
         match self.bindings {
-            Expr::List(bindings) => {
+            Expr::Call(bindings) => {
                 let (params, mut values) = try_unzip_list(bindings)?;
 
                 values.insert(
                     0,
                     Lambda::new(params.to_expr(), self.body)
                         .to_expr()
-                        .into_list()?,
+                        .into_call()?,
                 );
 
                 eval(values.to_expr(), env)
@@ -224,8 +224,8 @@ fn try_unzip_list(exprs: Vec<Expr>) -> Result<(Vec<Expr>, Vec<Expr>), EvalErr> {
         .try_fold((vec![], vec![]), |prev, expr_pair| {
             let (mut params, mut values) = prev;
             match expr_pair {
-                Expr::List(binding) => {
-                    let (param, value) = binding.into_iter().get_two_or_else(|| {
+                Expr::Call(binding) => {
+                    let (param, value) = binding.into_iter().own_two_or_else(|| {
                         EvalErr::InvalidArgs("'let' expression. expected bindings as pairs")
                     })?;
                     params.push(param);
