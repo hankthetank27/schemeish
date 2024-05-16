@@ -7,7 +7,7 @@ use crate::lexer::Token;
 use crate::primitives::pair::Pair;
 use crate::print::Printable;
 use crate::procedure::Proc;
-use crate::special_form::{And, Assignment, Begin, Cond, Define, If, Lambda, Let, Or, SpecialForm};
+use crate::special_form::{And, Assignment, Begin, Define, If, Lambda, Or, SpecialForm};
 use crate::utils::{OwnIterVals, ToExpr};
 
 // We treat any list that is expected to be evaluated as a procedure during parsing as a vector
@@ -81,10 +81,6 @@ impl Parser {
                     self.tokens.next();
                     self.parse_or()?.into_call()
                 }
-                Token::Cond => {
-                    self.tokens.next();
-                    self.parse_cond()?.into_call()
-                }
                 Token::Assignment => {
                     self.tokens.next();
                     self.parse_assignment()?.into_call()
@@ -93,9 +89,13 @@ impl Parser {
                     self.tokens.next();
                     self.parse_begin()?.into_call()
                 }
+                Token::Cond => {
+                    self.tokens.next();
+                    self.parse_cond()
+                }
                 Token::Let => {
                     self.tokens.next();
-                    self.parse_let()?.into_call()
+                    self.parse_let()
                 }
                 Token::QuoteProc => {
                     self.tokens.next();
@@ -150,7 +150,7 @@ impl Parser {
     fn parse_cond(&mut self) -> Result<Expr, EvalErr> {
         let clauses = self.parse_inner_call()?;
         match !clauses.is_empty() {
-            true => Ok(Cond::new(clauses).to_expr()),
+            true => cond_to_if(&mut clauses.into_iter().peekable()),
             false => Err(EvalErr::InvalidArgs("'cond' expression. expected clauses.")),
         }
     }
@@ -166,13 +166,29 @@ impl Parser {
     }
 
     fn parse_define(&mut self) -> Result<Expr, EvalErr> {
-        let (identifier, body) = self
+        let (identifier, mut body) = self
             .parse_inner_call()?
             .into_iter()
             .own_one_and_rest_or_else(|| {
                 EvalErr::InvalidArgs("'define' expression. expected identifier and value")
             })?;
-        Ok(Define::new(identifier, body.collect()).to_expr())
+
+        match identifier {
+            Expr::Call(args) => {
+                let (identifier, params) = args.into_iter().own_one_and_rest_or_else(|| {
+                    EvalErr::InvalidArgs("'define' procedure. expected parameters and body")
+                })?;
+                let proc = Lambda::new(params.collect::<Vec<Expr>>().to_expr(), body.collect())
+                    .to_expr()
+                    .into_call()?;
+                Ok(Define::new(identifier, proc).to_expr())
+            }
+            identifier => Ok(Define::new(
+                identifier,
+                body.own_one_or_else(|| EvalErr::InvalidArgs("variable has no declared value"))?,
+            )
+            .to_expr()),
+        }
     }
 
     fn parse_assignment(&mut self) -> Result<Expr, EvalErr> {
@@ -189,7 +205,7 @@ impl Parser {
             .own_one_and_rest_or_else(|| {
                 EvalErr::InvalidArgs("'let' expression. expected bindings and body")
             })?;
-        Ok(Let::new(bindings, body.collect()).to_expr())
+        let_to_lambda(bindings, body.collect())
     }
 
     fn parse_begin(&mut self) -> Result<Expr, EvalErr> {
@@ -263,6 +279,70 @@ impl Parser {
     fn peek_or_err(&mut self, err: EvalErr) -> Result<&Token, EvalErr> {
         self.tokens.peek().map_or_else(|| Err(err), Ok)
     }
+}
+
+fn let_to_lambda(bindings: Expr, body: Vec<Expr>) -> Result<Expr, EvalErr> {
+    match bindings {
+        Expr::Call(bindings) => {
+            let (params, mut values) = try_unzip_list(bindings)?;
+
+            values.insert(
+                0,
+                Lambda::new(params.to_expr(), body).to_expr().into_call()?,
+            );
+
+            Ok(values.to_expr())
+        }
+        expr => Err(EvalErr::TypeError("list", expr.clone())),
+    }
+}
+
+fn cond_to_if(exprs: &mut Peekable<std::vec::IntoIter<Expr>>) -> Result<Expr, EvalErr> {
+    match exprs.next() {
+        Some(expr) => match expr {
+            Expr::Call(expr) => {
+                let (predicate, consequence) = expr.into_iter().own_one_and_rest_or_else(|| {
+                    EvalErr::InvalidArgs("'cond'. clauses expcted two be lists of two values")
+                })?;
+
+                let consequence = Begin::new(consequence.collect()).to_expr().into_call()?;
+
+                if exprs.peek().is_some() {
+                    If::new(predicate, consequence, cond_to_if(exprs)?)
+                        .to_expr()
+                        .into_call()
+                } else {
+                    match predicate {
+                        Expr::Atom(Token::Else) => Ok(consequence),
+                        _ => If::new(predicate, consequence, cond_to_if(exprs)?)
+                            .to_expr()
+                            .into_call(),
+                    }
+                }
+            }
+            expr => Err(EvalErr::UnexpectedToken(expr.printable())),
+        },
+        None => Ok(Expr::EmptyList),
+    }
+}
+
+fn try_unzip_list(exprs: Vec<Expr>) -> Result<(Vec<Expr>, Vec<Expr>), EvalErr> {
+    exprs
+        .into_iter()
+        .try_fold((vec![], vec![]), |prev, expr_pair| {
+            let (mut params, mut values) = prev;
+            match expr_pair {
+                Expr::Call(binding) => {
+                    let (param, value) = binding.into_iter().own_two_or_else(|| {
+                        EvalErr::InvalidArgs("'let' expression. expected bindings as pairs")
+                    })?;
+                    params.push(param);
+                    values.push(value);
+                    Ok((params, values))
+                }
+                expr => Err(EvalErr::TypeError("list", expr.clone())),
+            }
+        })
 }
 
 #[cfg(test)]

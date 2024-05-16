@@ -55,7 +55,8 @@ impl EnvRef {
     }
 
     pub fn insert_val(&self, name: String, val: Expr) -> Result<(), EvalErr> {
-        Ok(self.borrow_ref_mut()?.insert_val(name, val))
+        self.borrow_ref_mut()?.insert_val(name, val);
+        Ok(())
     }
 
     pub fn update_val(&self, name: String, val: Expr) -> Result<Expr, EvalErr> {

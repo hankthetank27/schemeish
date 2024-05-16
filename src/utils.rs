@@ -11,11 +11,9 @@ use crate::procedure::Proc;
 use crate::special_form::And;
 use crate::special_form::Assignment;
 use crate::special_form::Begin;
-use crate::special_form::Cond;
 use crate::special_form::Define;
 use crate::special_form::If;
 use crate::special_form::Lambda;
-use crate::special_form::Let;
 use crate::special_form::Or;
 use crate::special_form::SpecialForm;
 
@@ -218,20 +216,8 @@ impl ToExpr for Or {
     }
 }
 
-impl ToExpr for Cond {
-    fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Rc::new(SpecialForm::Cond(self)))
-    }
-}
-
 impl ToExpr for Begin {
     fn to_expr(self) -> Expr {
         Expr::SpecialForm(Rc::new(SpecialForm::Begin(self)))
-    }
-}
-
-impl ToExpr for Let {
-    fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Rc::new(SpecialForm::Let(self)))
     }
 }
