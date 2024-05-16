@@ -83,7 +83,7 @@ mod test {
 
     use super::*;
 
-    fn eval_test(scm: &str) -> Vec<Expr> {
+    pub fn eval_test(scm: &str) -> Vec<Expr> {
         let exprs = Parser::new(TokenStream::new(scm).collect_tokens().unwrap())
             .parse()
             .unwrap();
