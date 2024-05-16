@@ -15,11 +15,9 @@ use crate::utils::{OwnIterVals, ToExpr};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Call(Vec<Expr>),
-    // since these clone on getting values from env,
-    // we want to allow multiple ownership with Rc to prevent deep cloning lists etc
     Pair(Rc<Pair>), //TODO: Maybe Rc -> Rc<RefCell>? unsafe mutation seems to be ok for now...
-    Proc(Box<Proc>), //TODO: Proc -> Rc<Proc>
-    SpecialForm(Box<SpecialForm>),
+    Proc(Rc<Proc>),
+    SpecialForm(Rc<SpecialForm>),
     Quoted(Box<Expr>),
     Atom(Token),
     EmptyList,
@@ -28,7 +26,7 @@ pub enum Expr {
 
 impl Expr {
     pub fn into_call(self) -> Result<Expr, EvalErr> {
-        Ok(Expr::Call(vec![self]))
+        Ok(vec![self].to_expr())
     }
 
     fn try_valid_single(self) -> Result<Expr, EvalErr> {
@@ -105,7 +103,7 @@ impl Parser {
                     self.next_or_err(EvalErr::UnexpectedEnd)?; // consume remaining paren
                     quoted
                 }
-                _ => self.parse_list(),
+                _ => self.parse_proc_call(),
             },
             Token::QuoteTick => self.parse_quote(),
             x @ Token::Number(_)
@@ -117,7 +115,15 @@ impl Parser {
         }
     }
 
-    fn parse_inner_list(&mut self) -> Result<Vec<Expr>, EvalErr> {
+    fn parse_proc_call(&mut self) -> Result<Expr, EvalErr> {
+        let list = self.parse_inner_call()?;
+        match !list.is_empty() {
+            true => Ok(list.to_expr()),
+            false => Ok(Expr::EmptyList),
+        }
+    }
+
+    fn parse_inner_call(&mut self) -> Result<Vec<Expr>, EvalErr> {
         let mut parsed_exprs: Vec<Expr> = vec![];
         while let Some(t) = self.tokens.peek() {
             match t {
@@ -131,17 +137,9 @@ impl Parser {
         Err(EvalErr::UnexpectedEnd)
     }
 
-    fn parse_list(&mut self) -> Result<Expr, EvalErr> {
-        let list = self.parse_inner_list()?;
-        match !list.is_empty() {
-            true => Ok(list.to_expr()),
-            false => Ok(Expr::EmptyList),
-        }
-    }
-
     fn parse_if(&mut self) -> Result<Expr, EvalErr> {
         let (predicate, consequence, alternative) =
-            self.parse_inner_list()?.into_iter().own_three_or_else(|| {
+            self.parse_inner_call()?.into_iter().own_three_or_else(|| {
                 EvalErr::InvalidArgs(
                     "'if' expression. expected condition, predicate, and consequence",
                 )
@@ -150,7 +148,7 @@ impl Parser {
     }
 
     fn parse_cond(&mut self) -> Result<Expr, EvalErr> {
-        let clauses = self.parse_inner_list()?;
+        let clauses = self.parse_inner_call()?;
         match !clauses.is_empty() {
             true => Ok(Cond::new(clauses).to_expr()),
             false => Err(EvalErr::InvalidArgs("'cond' expression. expected clauses.")),
@@ -159,7 +157,7 @@ impl Parser {
 
     fn parse_lambda(&mut self) -> Result<Expr, EvalErr> {
         let (params, body) = self
-            .parse_inner_list()?
+            .parse_inner_call()?
             .into_iter()
             .own_one_and_rest_or_else(|| {
                 EvalErr::InvalidArgs("'lambda' expression. expected parameters and body")
@@ -169,7 +167,7 @@ impl Parser {
 
     fn parse_define(&mut self) -> Result<Expr, EvalErr> {
         let (identifier, body) = self
-            .parse_inner_list()?
+            .parse_inner_call()?
             .into_iter()
             .own_one_and_rest_or_else(|| {
                 EvalErr::InvalidArgs("'define' expression. expected identifier and value")
@@ -178,7 +176,7 @@ impl Parser {
     }
 
     fn parse_assignment(&mut self) -> Result<Expr, EvalErr> {
-        let (first, second) = self.parse_inner_list()?.into_iter().own_two_or_else(|| {
+        let (first, second) = self.parse_inner_call()?.into_iter().own_two_or_else(|| {
             EvalErr::InvalidArgs("'set!' expression. expected identifier and value")
         })?;
         Ok(Assignment::new(first, second).to_expr())
@@ -186,7 +184,7 @@ impl Parser {
 
     fn parse_let(&mut self) -> Result<Expr, EvalErr> {
         let (bindings, body) = self
-            .parse_inner_list()?
+            .parse_inner_call()?
             .into_iter()
             .own_one_and_rest_or_else(|| {
                 EvalErr::InvalidArgs("'let' expression. expected bindings and body")
@@ -195,15 +193,15 @@ impl Parser {
     }
 
     fn parse_begin(&mut self) -> Result<Expr, EvalErr> {
-        Ok(Begin::new(self.parse_inner_list()?).to_expr())
+        Ok(Begin::new(self.parse_inner_call()?).to_expr())
     }
 
     fn parse_and(&mut self) -> Result<Expr, EvalErr> {
-        Ok(And::new(self.parse_inner_list()?).to_expr())
+        Ok(And::new(self.parse_inner_call()?).to_expr())
     }
 
     fn parse_or(&mut self) -> Result<Expr, EvalErr> {
-        Ok(Or::new(self.parse_inner_list()?).to_expr())
+        Ok(Or::new(self.parse_inner_call()?).to_expr())
     }
 
     // We treat a quoted expression as a normal expression behind an extra indrection, with the

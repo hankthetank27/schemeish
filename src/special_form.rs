@@ -1,5 +1,4 @@
 use std::iter::Peekable;
-use std::vec::IntoIter;
 
 use crate::{
     enviroment::EnvRef,
@@ -14,32 +13,32 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SpecialForm {
-    Define(Define),
-    If(If),
-    Let(Let),
-    Lambda(Lambda),
+    And(And),
     Assignment(Assignment),
     Begin(Begin),
     Cond(Cond),
-    And(And),
+    Define(Define),
+    If(If),
+    Lambda(Lambda),
+    Let(Let),
     Or(Or),
 }
 
 pub trait Eval {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr>;
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr>;
 }
 
 impl Eval for SpecialForm {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
         match self {
-            SpecialForm::If(if_x) => if_x.eval(env),
+            SpecialForm::And(and_x) => and_x.eval(env),
+            SpecialForm::Assignment(ass_x) => ass_x.eval(env),
+            SpecialForm::Begin(beg_x) => beg_x.eval(env),
             SpecialForm::Cond(cond_x) => cond_x.eval(env),
             SpecialForm::Define(def_x) => def_x.eval(env),
-            SpecialForm::Assignment(ass_x) => ass_x.eval(env),
-            SpecialForm::And(and_x) => and_x.eval(env),
-            SpecialForm::Begin(beg_x) => beg_x.eval(env),
-            SpecialForm::Let(let_x) => let_x.eval(env),
+            SpecialForm::If(if_x) => if_x.eval(env),
             SpecialForm::Lambda(lam_x) => lam_x.eval(env),
+            SpecialForm::Let(let_x) => let_x.eval(env),
             SpecialForm::Or(or_x) => or_x.eval(env),
         }
     }
@@ -58,16 +57,18 @@ impl Define {
 }
 
 impl Eval for Define {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        let mut body = self.body.into_iter();
-        match self.identifier {
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        match &self.identifier {
             //bind var
             Expr::Atom(Token::Symbol(identifier)) => {
-                let value = body
+                let value = self
+                    .body
+                    .iter()
                     .next()
                     .ok_or(EvalErr::InvalidArgs("variable has no declared value"))?;
 
-                env.insert_val(identifier.to_string(), eval(value, env)?)
+                env.insert_val(identifier.to_string(), eval(&value, env)?)?;
+                Ok(Expr::Void)
             }
             //bind proc
             Expr::Call(args) => {
@@ -77,13 +78,15 @@ impl Eval for Define {
 
                 match first {
                     Expr::Atom(Token::Symbol(identifier)) => {
-                        let lambda = Lambda::new(Expr::Call(rest.collect()), body.collect());
-                        env.insert_val(identifier.to_string(), lambda.eval(env)?)
+                        let proc = Lambda::new(Expr::Call(rest.collect()), self.body.to_owned())
+                            .eval(env)?;
+                        env.insert_val(identifier.to_string(), proc)?;
+                        Ok(Expr::Void)
                     }
                     _ => Err(EvalErr::InvalidArgs("expected identifier for procedure")),
                 }
             }
-            identifier => Err(EvalErr::TypeError("symbol or list", identifier)),
+            identifier => Err(EvalErr::TypeError("symbol or list", identifier.clone())),
         }
     }
 }
@@ -101,14 +104,16 @@ impl Lambda {
 }
 
 impl Eval for Lambda {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        match self.params {
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        match &self.params {
             Expr::Call(first_expr) => {
-                let proc_args = first_expr.into_strings()?;
-                Ok(Compound::new(self.body, proc_args, env.clone_rc()?).to_expr())
+                let proc_args = first_expr.to_owned().into_strings()?;
+                Ok(Compound::new(self.body.to_owned(), proc_args, env.clone_rc()?).to_expr())
             }
-            Expr::EmptyList => Ok(Compound::new(self.body, vec![], env.clone_rc()?).to_expr()),
-            first_expr => Err(EvalErr::TypeError("list", first_expr)),
+            Expr::EmptyList => {
+                Ok(Compound::new(self.body.to_owned(), vec![], env.clone_rc()?).to_expr())
+            }
+            first_expr => Err(EvalErr::TypeError("list", first_expr.clone())),
         }
     }
 }
@@ -131,10 +136,10 @@ impl If {
 }
 
 impl Eval for If {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        match eval(self.predicate, env)? {
-            Expr::Atom(Token::Boolean(true)) => eval(self.consequence, env),
-            Expr::Atom(Token::Boolean(false)) => eval(self.alternative, env),
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        match eval(&self.predicate, env)? {
+            Expr::Atom(Token::Boolean(true)) => eval(&self.consequence, env),
+            Expr::Atom(Token::Boolean(false)) => eval(&self.alternative, env),
             pred => Err(EvalErr::TypeError("bool", pred)),
         }
     }
@@ -152,12 +157,12 @@ impl Cond {
 }
 
 impl Eval for Cond {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        eval(cond_to_if(&mut self.clauses.into_iter().peekable())?, env)
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        eval(&cond_to_if(&mut self.clauses.iter().peekable())?, env)
     }
 }
 
-fn cond_to_if(exprs: &mut Peekable<IntoIter<Expr>>) -> Result<Expr, EvalErr> {
+fn cond_to_if(exprs: &mut Peekable<std::slice::Iter<'_, Expr>>) -> Result<Expr, EvalErr> {
     match exprs.next() {
         Some(expr) => match expr {
             Expr::Call(expr) => {
@@ -199,26 +204,26 @@ impl Let {
 }
 
 impl Eval for Let {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        match self.bindings {
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        match &self.bindings {
             Expr::Call(bindings) => {
                 let (params, mut values) = try_unzip_list(bindings)?;
 
                 values.insert(
                     0,
-                    Lambda::new(params.to_expr(), self.body)
+                    Lambda::new(params.to_expr(), self.body.to_owned())
                         .to_expr()
                         .into_call()?,
                 );
 
-                eval(values.to_expr(), env)
+                eval(&values.to_expr(), env)
             }
-            expr => Err(EvalErr::TypeError("list", expr)),
+            expr => Err(EvalErr::TypeError("list", expr.clone())),
         }
     }
 }
 
-fn try_unzip_list(exprs: Vec<Expr>) -> Result<(Vec<Expr>, Vec<Expr>), EvalErr> {
+fn try_unzip_list(exprs: &Vec<Expr>) -> Result<(Vec<Expr>, Vec<Expr>), EvalErr> {
     exprs
         .into_iter()
         .try_fold((vec![], vec![]), |prev, expr_pair| {
@@ -232,7 +237,7 @@ fn try_unzip_list(exprs: Vec<Expr>) -> Result<(Vec<Expr>, Vec<Expr>), EvalErr> {
                     values.push(value);
                     Ok((params, values))
                 }
-                expr => Err(EvalErr::TypeError("list", expr)),
+                expr => Err(EvalErr::TypeError("list", expr.clone())),
             }
         })
 }
@@ -250,12 +255,12 @@ impl Assignment {
 }
 
 impl Eval for Assignment {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        match self.identifier {
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        match &self.identifier {
             Expr::Atom(Token::Symbol(identifier)) => {
-                env.update_val(identifier.to_string(), eval(self.value, env)?)
+                env.update_val(identifier.to_string(), eval(&self.value, env)?)
             }
-            expr => Err(EvalErr::TypeError("symbol", expr)),
+            expr => Err(EvalErr::TypeError("symbol", expr.clone())),
         }
     }
 }
@@ -272,10 +277,10 @@ impl Begin {
 }
 
 impl Eval for Begin {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
         self.exprs
-            .into_iter()
-            .try_fold(Expr::Void, |_returned_expr, expr| eval(expr, env))
+            .iter()
+            .try_fold(Expr::Void, |_returned_expr, expr| eval(&expr, env))
     }
 }
 
@@ -291,9 +296,9 @@ impl And {
 }
 
 impl Eval for And {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        for expr in self.body.into_iter() {
-            match eval(expr, env)? {
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        for expr in self.body.iter() {
+            match eval(&expr, env)? {
                 Expr::Atom(Token::Boolean(n)) if !n => return Ok(n.to_expr()),
                 Expr::Atom(Token::Boolean(n)) if n => Ok(()),
                 expr => Err(EvalErr::TypeError("boolean", expr)),
@@ -315,9 +320,9 @@ impl Or {
 }
 
 impl Eval for Or {
-    fn eval(self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        for expr in self.body.into_iter() {
-            match eval(expr, env)? {
+    fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
+        for expr in self.body.iter() {
+            match eval(&expr, env)? {
                 Expr::Atom(Token::Boolean(n)) if n => return Ok(n.to_expr()),
                 Expr::Atom(Token::Boolean(n)) if !n => Ok(()),
                 expr => Err(EvalErr::TypeError("boolean", expr)),

@@ -57,7 +57,7 @@ impl Repl {
                 };
 
                 for exp in exprs.into_iter() {
-                    match evaluator::eval(exp, &self.global_env) {
+                    match evaluator::eval(&exp, &self.global_env) {
                         Ok(evalulated) => evalulated.print(),
                         Err(err) => eprintln!("{err}"),
                     }

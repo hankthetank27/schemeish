@@ -5,8 +5,8 @@ use crate::parser::Expr;
 use crate::procedure::Proc;
 use crate::{special_form::Eval, utils::OwnIterVals};
 
-pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
-    match expr {
+pub fn eval(expr: &Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
+    match expr.clone() {
         // variable lookup
         Expr::Atom(Token::Symbol(ref identifier)) => env.get_val(identifier),
         // procedure
@@ -29,8 +29,8 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
 
 pub fn apply(op: Expr, args: Args) -> Result<Expr, EvalErr> {
     let env = &args.env()?;
-    match eval(op, env)? {
-        Expr::Proc(proc) => match *proc {
+    match eval(&op, env)? {
+        Expr::Proc(proc) => match proc.as_ref() {
             Proc::Primitive(proc) => proc.call(args.eval()?),
             Proc::Compound(proc) => proc.call(args.eval()?),
         },
@@ -55,7 +55,7 @@ impl Args {
         let evaled = self
             .args
             .into_iter()
-            .map(|expr| eval(expr, &self.env))
+            .map(|expr| eval(&expr, &self.env))
             .collect::<Result<Vec<Expr>, EvalErr>>()?;
 
         self.args = evaled;

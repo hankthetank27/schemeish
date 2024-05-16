@@ -48,7 +48,7 @@ impl Pair {
         let next = mem::replace(&mut self.cdr, Expr::EmptyList);
         match next {
             Expr::Pair(next) => {
-                let next = own_rc_pair(next);
+                let next = next.inner_to_owned();
                 self.car = next.car;
                 self.cdr = next.cdr;
             }
@@ -64,10 +64,16 @@ impl Pair {
     }
 }
 
-pub fn own_rc_pair(rc: Rc<Pair>) -> Pair {
-    match Rc::try_unwrap(rc) {
-        Ok(p) => p,
-        Err(rc) => rc.as_ref().clone(),
+pub trait OwnPtrInner<T: Clone> {
+    fn inner_to_owned(self) -> T;
+}
+
+impl<T: Clone> OwnPtrInner<T> for Rc<T> {
+    fn inner_to_owned(self) -> T {
+        match Rc::try_unwrap(self) {
+            Ok(p) => p,
+            Err(rc) => rc.as_ref().clone(),
+        }
     }
 }
 
@@ -141,7 +147,7 @@ pub fn car(args: Args) -> Result<Expr, EvalErr> {
         .own_one_or_else(|| EvalErr::InvalidArgs("'car'. expected argument"))?;
 
     match expr {
-        Expr::Pair(p) => Ok(own_rc_pair(p).car),
+        Expr::Pair(p) => Ok(p.inner_to_owned().car),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access car of empty list")),
         x => Err(EvalErr::TypeError("pair", x)),
     }
@@ -153,7 +159,7 @@ pub fn cdr(args: Args) -> Result<Expr, EvalErr> {
         .own_one_or_else(|| EvalErr::InvalidArgs("'cdr'. expected argument"))?;
 
     match expr {
-        Expr::Pair(p) => Ok(own_rc_pair(p).cdr),
+        Expr::Pair(p) => Ok(p.inner_to_owned().cdr),
         Expr::EmptyList => Err(EvalErr::InvalidArgs("cannot access cdr of empty list")),
         x => Err(EvalErr::TypeError("pair", x)),
     }

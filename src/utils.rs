@@ -77,7 +77,7 @@ where
     }
 }
 
-pub trait OwnIterVals<F, T>
+pub trait OwnIterVals<T, F>
 where
     F: Fn() -> EvalErr,
 {
@@ -87,7 +87,7 @@ where
     fn own_one_and_rest_or_else(self, err: F) -> Result<(T, IntoIter<T>), EvalErr>;
 }
 
-impl<F, T> OwnIterVals<F, T> for IntoIter<T>
+impl<T, F> OwnIterVals<T, F> for IntoIter<T>
 where
     F: Fn() -> EvalErr,
 {
@@ -114,7 +114,7 @@ where
     }
 }
 
-impl<F, T> OwnIterVals<F, T> for Iter<'_, T>
+impl<T, F> OwnIterVals<T, F> for Iter<'_, T>
 where
     F: Fn() -> EvalErr,
     T: Clone,
@@ -166,7 +166,7 @@ impl ToExpr for bool {
 
 impl ToExpr for Proc {
     fn to_expr(self) -> Expr {
-        Expr::Proc(Box::new(self))
+        Expr::Proc(Rc::new(self))
     }
 }
 
@@ -184,54 +184,54 @@ impl ToExpr for Pair {
 
 impl ToExpr for If {
     fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Box::new(SpecialForm::If(self)))
+        Expr::SpecialForm(Rc::new(SpecialForm::If(self)))
     }
 }
 
 impl ToExpr for Lambda {
     fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Box::new(SpecialForm::Lambda(self)))
+        Expr::SpecialForm(Rc::new(SpecialForm::Lambda(self)))
     }
 }
 
 impl ToExpr for Define {
     fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Box::new(SpecialForm::Define(self)))
+        Expr::SpecialForm(Rc::new(SpecialForm::Define(self)))
     }
 }
 
 impl ToExpr for Assignment {
     fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Box::new(SpecialForm::Assignment(self)))
+        Expr::SpecialForm(Rc::new(SpecialForm::Assignment(self)))
     }
 }
 
 impl ToExpr for And {
     fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Box::new(SpecialForm::And(self)))
+        Expr::SpecialForm(Rc::new(SpecialForm::And(self)))
     }
 }
 
 impl ToExpr for Or {
     fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Box::new(SpecialForm::Or(self)))
+        Expr::SpecialForm(Rc::new(SpecialForm::Or(self)))
     }
 }
 
 impl ToExpr for Cond {
     fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Box::new(SpecialForm::Cond(self)))
+        Expr::SpecialForm(Rc::new(SpecialForm::Cond(self)))
     }
 }
 
 impl ToExpr for Begin {
     fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Box::new(SpecialForm::Begin(self)))
+        Expr::SpecialForm(Rc::new(SpecialForm::Begin(self)))
     }
 }
 
 impl ToExpr for Let {
     fn to_expr(self) -> Expr {
-        Expr::SpecialForm(Box::new(SpecialForm::Let(self)))
+        Expr::SpecialForm(Rc::new(SpecialForm::Let(self)))
     }
 }

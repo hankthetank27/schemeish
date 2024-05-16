@@ -49,7 +49,7 @@ fn run_from_file(file: &str) {
     });
 
     for exp in exprs.into_iter() {
-        match evaluator::eval(exp, &global) {
+        match evaluator::eval(&exp, &global) {
             Ok(_) => (),
             Err(err) => eprintln!("{err}"),
         }
@@ -91,7 +91,7 @@ mod test {
         global.import_prelude().unwrap();
         exprs
             .into_iter()
-            .map(|e| evaluator::eval(e, &global).unwrap_or_else(|err| panic!("{err}")))
+            .map(|e| evaluator::eval(&e, &global).unwrap_or_else(|err| panic!("{err}")))
             .collect()
     }
 
@@ -103,7 +103,7 @@ mod test {
         global.import_prelude().unwrap();
         exprs
             .into_iter()
-            .map(|e| evaluator::eval(e, &global))
+            .map(|e| evaluator::eval(&e, &global))
             .collect()
     }
 

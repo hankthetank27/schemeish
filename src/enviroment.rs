@@ -54,7 +54,7 @@ impl EnvRef {
             .get_val(name)
     }
 
-    pub fn insert_val(&self, name: String, val: Expr) -> Result<Expr, EvalErr> {
+    pub fn insert_val(&self, name: String, val: Expr) -> Result<(), EvalErr> {
         Ok(self.borrow_ref_mut()?.insert_val(name, val))
     }
 
@@ -108,7 +108,7 @@ impl EnvRef {
         let tokens = TokenStream::new(prelude::PRELUDE).collect_tokens()?;
         let exprs = Parser::new(tokens).parse()?;
         for exp in exprs.into_iter() {
-            match eval(exp, self) {
+            match eval(&exp, self) {
                 Ok(_) => (),
                 Err(err) => eprintln!("{err}"),
             }
@@ -138,9 +138,8 @@ impl Env {
             .map_or_else(|| self.parent.get_val(name), Ok)
     }
 
-    pub fn insert_val(&mut self, name: String, val: Expr) -> Expr {
-        self.values.insert(name, val.clone());
-        val
+    pub fn insert_val(&mut self, name: String, val: Expr) {
+        self.values.insert(name, val);
     }
 
     pub fn update_val(&mut self, name: String, val: Expr) -> Result<Expr, EvalErr> {
