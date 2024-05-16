@@ -302,7 +302,7 @@ mod test {
 
         let evalulated = eval_test(scm);
         let res = evalulated.get(0).unwrap().to_owned();
-        assert_eq!(res, EmptyList);
+        assert_eq!(res, Expr::Void);
     }
 
     #[test]
@@ -422,7 +422,7 @@ mod test {
         match res {
             Err(e) => {
                 let x = match e {
-                    EvalErr::TypeError(_, _) => true,
+                    EvalErr::UnboundVar(_) => true,
                     _ => false,
                 };
                 assert!(x)

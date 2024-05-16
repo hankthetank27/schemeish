@@ -28,13 +28,6 @@ impl Expr {
     pub fn into_call(self) -> Result<Expr, EvalErr> {
         Ok(vec![self].to_expr())
     }
-
-    fn try_valid_single(self) -> Result<Expr, EvalErr> {
-        match self {
-            f @ Expr::Atom(Token::Else) => Err(EvalErr::UnexpectedToken(f.printable())),
-            t => Ok(t),
-        }
-    }
 }
 
 pub struct Parser {
@@ -52,7 +45,7 @@ impl Parser {
 
     pub fn parse(mut self) -> Result<Vec<Expr>, EvalErr> {
         while self.tokens.peek().is_some() {
-            let expr = self.parse_from_token()?.try_valid_single()?;
+            let expr = self.parse_from_token()?;
             self.parsed_exprs.push(expr)
         }
         Ok(self.parsed_exprs)
@@ -109,8 +102,7 @@ impl Parser {
             x @ Token::Number(_)
             | x @ Token::Str(_)
             | x @ Token::Boolean(_)
-            | x @ Token::Symbol(_)
-            | x @ Token::Else => Ok(Expr::Atom(x)),
+            | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
             t => Err(EvalErr::UnexpectedToken(t.printable())),
         }
     }
@@ -242,7 +234,6 @@ impl Parser {
             | t @ Token::Cond
             | t @ Token::QuoteTick
             | t @ Token::QuoteProc
-            | t @ Token::Else
             | t @ Token::Begin
             | t @ Token::Or => Ok(t.printable().to_expr()),
             // TODO: I'm pretty sure we hanlde nested quoted exprs in this way but double check
@@ -285,12 +276,10 @@ fn let_to_lambda(bindings: Expr, body: Vec<Expr>) -> Result<Expr, EvalErr> {
     match bindings {
         Expr::Call(bindings) => {
             let (params, mut values) = try_unzip_list(bindings)?;
-
             values.insert(
                 0,
                 Lambda::new(params.to_expr(), body).to_expr().into_call()?,
             );
-
             Ok(values.to_expr())
         }
         expr => Err(EvalErr::TypeError("list", expr.clone())),
@@ -313,7 +302,7 @@ fn cond_to_if(exprs: &mut Peekable<std::vec::IntoIter<Expr>>) -> Result<Expr, Ev
                         .into_call()
                 } else {
                     match predicate {
-                        Expr::Atom(Token::Else) => Ok(consequence),
+                        Expr::Atom(Token::Symbol(s)) if s == "else" => Ok(consequence),
                         _ => If::new(predicate, consequence, cond_to_if(exprs)?)
                             .to_expr()
                             .into_call(),
@@ -322,7 +311,7 @@ fn cond_to_if(exprs: &mut Peekable<std::vec::IntoIter<Expr>>) -> Result<Expr, Ev
             }
             expr => Err(EvalErr::UnexpectedToken(expr.printable())),
         },
-        None => Ok(Expr::EmptyList),
+        None => Ok(Expr::Void),
     }
 }
 
@@ -421,14 +410,6 @@ mod test {
     #[should_panic]
     fn no_close() {
         let scm = "(+ 1 (1)";
-        let tokens = TokenStream::new(scm).collect_tokens().unwrap();
-        Parser::new(tokens).parse().unwrap();
-    }
-
-    #[test]
-    #[should_panic]
-    fn invalid_else() {
-        let scm = "else";
         let tokens = TokenStream::new(scm).collect_tokens().unwrap();
         Parser::new(tokens).parse().unwrap();
     }

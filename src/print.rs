@@ -30,7 +30,7 @@ impl Printable for Token {
             Token::Lambda => "lambda".into(),
             Token::Assignment => "set!".into(),
             Token::And => "and".into(),
-            Token::Else => "else".into(),
+            // Token::Else => "else".into(),
             Token::Or => "or".into(),
             Token::Cond => "cond".into(),
             Token::QuoteTick => "'".into(),

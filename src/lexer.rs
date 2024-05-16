@@ -16,7 +16,6 @@ pub enum Token {
     Lambda,
     Cond,
     Begin,
-    Else,
     Assignment,
     QuoteTick,
     QuoteProc,
@@ -110,7 +109,6 @@ impl<'a> TokenStream<'a> {
             "or" => Token::Or,
             "cond" => Token::Cond,
             "set!" => Token::Assignment,
-            "else" => Token::Else,
             _ => Token::Symbol(value),
         })
     }
