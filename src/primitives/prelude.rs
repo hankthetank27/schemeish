@@ -49,7 +49,6 @@ pub const PRELUDE: &str = "
 (define (assv obj alist)     (fold (mem-helper (curry eqv? obj) car) #f alist))
 (define (assoc obj alist)    (fold (mem-helper (curry equal? obj) car) #f alist))
 
-
 (define (caar x) (car (car x)))
 (define (cadr x) (car (cdr x)))
 (define (cdar x) (cdr (car x)))

@@ -53,7 +53,7 @@ impl Eval for Define {
     fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
         match &self.identifier {
             Expr::Atom(Token::Symbol(identifier)) => {
-                env.insert_val(identifier.clone(), eval(&self.body, env)?)?;
+                env.insert_val(identifier.clone(), eval(self.body.clone(), env)?)?;
                 Ok(Expr::Void)
             }
             identifier => Err(EvalErr::TypeError("symbol or list", identifier.clone())),
@@ -107,9 +107,9 @@ impl If {
 
 impl Eval for If {
     fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
-        match eval(&self.predicate, env)? {
-            Expr::Atom(Token::Boolean(true)) => eval(&self.consequence, env),
-            Expr::Atom(Token::Boolean(false)) => eval(&self.alternative, env),
+        match eval(self.predicate.clone(), env)? {
+            Expr::Atom(Token::Boolean(true)) => eval(self.consequence.clone(), env),
+            Expr::Atom(Token::Boolean(false)) => eval(self.alternative.clone(), env),
             pred => Err(EvalErr::TypeError("bool", pred)),
         }
     }
@@ -131,7 +131,7 @@ impl Eval for Assignment {
     fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
         match &self.identifier {
             Expr::Atom(Token::Symbol(identifier)) => {
-                env.update_val(identifier.to_string(), eval(&self.value, env)?)
+                env.update_val(identifier.to_string(), eval(self.value.clone(), env)?)
             }
             expr => Err(EvalErr::TypeError("symbol", expr.clone())),
         }
@@ -153,7 +153,7 @@ impl Eval for Begin {
     fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
         self.exprs
             .iter()
-            .try_fold(Expr::Void, |_returned_expr, expr| eval(expr, env))
+            .try_fold(Expr::Void, |_returned_expr, expr| eval(expr.clone(), env))
     }
 }
 
@@ -171,7 +171,7 @@ impl And {
 impl Eval for And {
     fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
         for expr in self.body.iter() {
-            match eval(expr, env)? {
+            match eval(expr.clone(), env)? {
                 Expr::Atom(Token::Boolean(n)) if !n => return Ok(n.to_expr()),
                 Expr::Atom(Token::Boolean(n)) if n => Ok(()),
                 expr => Err(EvalErr::TypeError("boolean", expr)),
@@ -195,7 +195,7 @@ impl Or {
 impl Eval for Or {
     fn eval(&self, env: &EnvRef) -> Result<Expr, EvalErr> {
         for expr in self.body.iter() {
-            match eval(expr, env)? {
+            match eval(expr.clone(), env)? {
                 Expr::Atom(Token::Boolean(n)) if n => return Ok(n.to_expr()),
                 Expr::Atom(Token::Boolean(n)) if !n => Ok(()),
                 expr => Err(EvalErr::TypeError("boolean", expr)),

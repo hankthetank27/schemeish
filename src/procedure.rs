@@ -56,14 +56,16 @@ impl Compound {
 
         for param in self.params.iter() {
             let arg = args.next().unwrap();
-            new_env.insert_val(param.to_string(), arg);
+            new_env.insert_val(param.to_owned(), arg);
         }
 
         let new_env_ref = EnvRef::new(new_env);
 
         self.body
             .iter()
-            .try_fold(Expr::Void, |_returned_expr, expr| eval(expr, &new_env_ref))
+            .try_fold(Expr::Void, |_returned_expr, expr| {
+                eval(expr.clone(), &new_env_ref)
+            })
     }
 
     pub fn params(self) -> Vec<String> {

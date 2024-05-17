@@ -109,7 +109,7 @@ impl EnvRef {
         let tokens = TokenStream::new(prelude::PRELUDE).collect_tokens()?;
         let exprs = Parser::new(tokens).parse()?;
         for exp in exprs.into_iter() {
-            match eval(&exp, self) {
+            match eval(exp, self) {
                 Ok(_) => (),
                 Err(err) => eprintln!("{err}"),
             }

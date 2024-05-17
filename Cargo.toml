@@ -9,5 +9,6 @@ edition = "2021"
 criterion = "0.5.1"
 
 [[bench]]
-name = "coin_bench"
+name = "eval_bench"
 harness = false
+
