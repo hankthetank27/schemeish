@@ -41,15 +41,11 @@ const TAKL: &'static str = "
        (or (null? x)
            (shorterp (cdr x)
                      (cdr y)))))
-(mas 
-    (list 1 2 3 4 5 6 7 9 10 11 12 13 14 15 16 17 18)
-    (list 1 2 3 4 5 6 7 9 10 11 12)
-    (list 1 2 3 4 5 6))
+(mas l18 l12 l6)
 ";
 
 const CPSTAK: &'static str = " 
 (define (cpstak x y z)
-
   (define (tak x y z k)
     (if (not (< y x))
         (k z)
