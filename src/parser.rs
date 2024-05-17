@@ -92,13 +92,13 @@ impl Parser {
                 }
                 Token::QuoteProc => {
                     self.tokens.next();
-                    let quoted = self.parse_quote();
+                    let quoted = self.parse_quote()?;
                     self.next_or_err(EvalErr::UnexpectedEnd)?; // consume remaining paren
-                    quoted
+                    Ok(Expr::Quoted(Box::new(quoted)))
                 }
                 _ => self.parse_proc_call(),
             },
-            Token::QuoteTick => self.parse_quote(),
+            Token::QuoteTick => Ok(Expr::Quoted(Box::new(self.parse_quote()?))),
             x @ Token::Number(_)
             | x @ Token::Str(_)
             | x @ Token::Boolean(_)
@@ -219,7 +219,7 @@ impl Parser {
     // TODO: we might consider parsing this in the same way we do non-quoted tokens, but this is a
     // bit more lenient as any token is valid (besides the hanging closing paren).
     fn parse_quote(&mut self) -> Result<Expr, EvalErr> {
-        let res = match self.next_or_err(EvalErr::UnexpectedEnd)? {
+        match self.next_or_err(EvalErr::UnexpectedEnd)? {
             Token::LParen => {
                 let res = self.parse_inner_quote()?;
                 self.tokens.next(); // consume remaining paren
@@ -236,17 +236,12 @@ impl Parser {
             | t @ Token::QuoteProc
             | t @ Token::Begin
             | t @ Token::Or => Ok(t.printable().to_expr()),
-            // TODO: I'm pretty sure we hanlde nested quoted exprs in this way but double check
-            // Token::QuoteTick => self.parse_quote(),
-            // Token::QuoteProc => self.parse_quote(),
             x @ Token::Number(_)
             | x @ Token::Str(_)
             | x @ Token::Boolean(_)
             | x @ Token::Symbol(_) => Ok(Expr::Atom(x)),
             p @ Token::RParen => Err(EvalErr::UnexpectedToken(p.printable())),
-        }?;
-
-        Ok(Expr::Quoted(Box::new(res)))
+        }
     }
 
     fn parse_inner_quote(&mut self) -> Result<Expr, EvalErr> {
@@ -361,8 +356,8 @@ mod test {
         let scm = "'(+ 1)";
         let res: Vec<Expr> = vec![Expr::Quoted(Box::new(
             Pair::new(
-                Expr::Quoted(Box::new("+".to_string().to_expr())),
-                Pair::new(Expr::Quoted(Box::new(1.0.to_expr())), Expr::EmptyList).to_expr(),
+                "+".to_string().to_expr(),
+                Pair::new(1.0.to_expr(), Expr::EmptyList).to_expr(),
             )
             .to_expr(),
         ))];
@@ -376,12 +371,8 @@ mod test {
         let scm = "(quote (+ 1))";
         let res: Vec<Expr> = vec![Expr::Quoted(Box::new(
             Pair::new(
-                Expr::Quoted(Box::new(Expr::Atom(Token::Symbol("+".to_string())))),
-                Pair::new(
-                    Expr::Quoted(Box::new(Expr::Atom(Token::Number(1.0)))),
-                    Expr::EmptyList,
-                )
-                .to_expr(),
+                Expr::Atom(Token::Symbol("+".to_string())),
+                Pair::new(1.0.to_expr(), Expr::EmptyList).to_expr(),
             )
             .to_expr(),
         ))];

@@ -342,6 +342,57 @@ mod test {
     }
 
     #[test]
+    fn substitute() {
+        let scm = " 
+            (define (substitute list old new)
+              (if (null? list) 
+                '()
+                (if (equal? old (car list))
+                 (cons new (substitute (cdr list) old new))
+                    (if  (pair? (car list))
+                     (cons (substitute (car list) old new)
+                           (substitute (cdr list) old new))
+                     (cons (car list)(substitute (cdr list) old new))))))
+
+            (substitute '('(lead guitar) '(bass guitar) 'drums) 'guitar 'axe)";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(1).unwrap().to_owned();
+        assert_eq!(
+            res,
+            Pair::new(
+                (&"'").to_expr(),
+                Pair::new(
+                    Pair::new(
+                        (&"lead").to_expr(),
+                        Pair::new((&"axe").to_expr(), EmptyList).to_expr()
+                    )
+                    .to_expr(),
+                    Pair::new(
+                        (&"'").to_expr(),
+                        Pair::new(
+                            Pair::new(
+                                (&"bass").to_expr(),
+                                Pair::new((&"axe").to_expr(), EmptyList).to_expr()
+                            )
+                            .to_expr(),
+                            Pair::new(
+                                (&"'").to_expr(),
+                                Pair::new((&"drums").to_expr(), EmptyList).to_expr()
+                            )
+                            .to_expr()
+                        )
+                        .to_expr(),
+                    )
+                    .to_expr()
+                )
+                .to_expr()
+            )
+            .to_expr()
+        );
+    }
+
+    #[test]
     fn type_error() {
         let scm = "(define 1 2)";
 

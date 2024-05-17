@@ -7,9 +7,7 @@ use crate::{special_form::Eval, utils::OwnIterVals};
 
 pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
     match expr {
-        // variable lookup
         Expr::Atom(Token::Symbol(ref identifier)) => env.get_val(identifier),
-        // procedure
         Expr::Call(ls) => {
             let (op, args) = ls
                 .into_iter()
@@ -20,7 +18,6 @@ pub fn eval(expr: Expr, env: &EnvRef) -> Result<Expr, EvalErr> {
                 _ => apply(op, args),
             }
         }
-        // self evaluating
         Expr::Quoted(x) => Ok(*x),
         x @ Expr::Atom(_) | x @ Expr::Pair(_) | x @ Expr::EmptyList | x @ Expr::Void => Ok(x),
         x => Err(EvalErr::TypeError("expression", x)),

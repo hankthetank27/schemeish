@@ -9,7 +9,7 @@ pub trait Print<T> {
     fn print(&self);
 }
 
-impl<T: Printable> Print<T> for T {
+impl<T: Printable + std::fmt::Debug> Print<T> for T {
     fn print(&self) {
         println!("{}", self.printable())
     }
