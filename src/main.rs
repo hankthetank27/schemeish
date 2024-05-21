@@ -315,6 +315,19 @@ mod test {
     }
 
     #[test]
+    fn let_star() {
+        let scm = "
+             (let ((x 1)(y 3))
+              (let* ((x 7)
+                     (z (+ x y)))
+                (* z x)))";
+
+        let evalulated = eval_test(scm);
+        let res = evalulated.get(0).unwrap().to_owned();
+        assert_eq!(res, Atom(Number(10.0)));
+    }
+
+    #[test]
     fn coin_combo() {
         let scm = "(define (first-denomination coins)
                       (car coins))
