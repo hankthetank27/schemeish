@@ -206,9 +206,7 @@ impl Parser {
             .own_one_and_rest_or_else(|| {
                 EvalErr::InvalidArgs("'let' expression. expected bindings and body")
             })?;
-        let res = Ok(let_to_lambda(bindings, body.collect())?.to_expr());
-        println!("star: {:?}", res);
-        res
+        Ok(let_to_lambda(bindings, body.collect())?.to_expr())
     }
 
     fn parse_letstar(&mut self) -> Result<Expr, EvalErr> {
@@ -220,14 +218,8 @@ impl Parser {
             })?;
 
         match bindings {
-            Expr::Call(bindings) => {
-                let res = letstar_to_lambda(&mut bindings.into_iter().peekable(), body.collect());
-                println!("star: {:?}", res);
-                res
-            }
-            Expr::EmptyList => {
-                letstar_to_lambda(&mut vec![].into_iter().peekable(), body.collect())
-            }
+            Expr::Call(bindings) => letstar_to_lambda(&mut bindings.into_iter(), body.collect()),
+            Expr::EmptyList => letstar_to_lambda(&mut vec![].into_iter(), body.collect()),
             _ => Err(EvalErr::InvalidArgs(
                 "'let*' expression. expected list of binding",
             )),
@@ -320,7 +312,7 @@ fn let_to_lambda(bindings: Expr, body: Vec<Expr>) -> Result<Vec<Expr>, EvalErr> 
 }
 
 fn letstar_to_lambda(
-    bindings: &mut Peekable<std::vec::IntoIter<Expr>>,
+    bindings: &mut std::vec::IntoIter<Expr>,
     body: Vec<Expr>,
 ) -> Result<Expr, EvalErr> {
     match bindings.next() {
@@ -336,8 +328,9 @@ fn make_single_let(binding: Expr, body: Vec<Expr>) -> Result<Expr, EvalErr> {
     match binding {
         Expr::Call(binding) => {
             let (param, val) = binding.into_iter().own_two_or_else(|| {
-                EvalErr::InvalidArgs("'let'. expected parameter and value pair")
+                EvalErr::InvalidArgs("'let*'. expected parameter and value pair")
             })?;
+
             Ok(vec![
                 Lambda::new(param.into_call()?, body)
                     .to_expr()
