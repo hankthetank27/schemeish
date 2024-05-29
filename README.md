@@ -16,38 +16,38 @@ To try it out, run `cargo run` to compile and enter the REPL, or pass in a file 
 | `cond`                        | `foldl` / `fold`    |
 | `begin`                       | `unfold`            |
 | `let`                         | `zero?`             |
-| `and`                         | `positive?`         |
-| `or`                          | `negitive?`         |
-| `not`                         | `odd?`              |
-| `+`                           | `even?`             |
-| `-`                           | `abs`               |
-| `*`                           | `map`               |
-| `/`                           | `filter`            |
-| `=`                           | `length`            |
-| `>`                           | `list-tail`         |
-| `<`                           | `list head`         |
-| `<=`                          | `memq`              |
-| `>=`                          | `memv`              |
-| `remainder`                   | `member`            |
-| `modulo`                      | `assq`              |
-| `apply`                       | `assv`              |
-| `cons`                        | `assoc`             |
-| `car`                         | `caar`              |
-| `cdr`                         | `cadr`              |
-| `list`                        | `cdar`              |
-| `set!`                        | `cddr`              |
-| `set-car!`                    | `caaar`             |
-| `set-cdr!`                    | `caadr`             |
-| `display`                     | `cadar`             |
-| `error`                       | `caddr`             |
-| `equal?`                      | `cdaar`             |
-| `eq?`                         | `cdadr`             |
-| `number?`                     | `cddar`             |
-| `symbol?`                     | `cdddr`             |
-| `string?`                     | `caaaar`            |
-| `pair?`                       | `caaadr`            |
-| `null?`                       | `caadar`            |
-|                               | `caaddr`            |
+| `let*`                        | `positive?`         |
+| `and`                         | `negitive?`         |
+| `or`                          | `odd?`              |
+| `not`                         | `even?`             |
+| `+`                           | `abs`               |
+| `-`                           | `map`               |
+| `*`                           | `filter`            |
+| `/`                           | `length`            |
+| `=`                           | `list-tail`         |
+| `>`                           | `list head`         |
+| `<`                           | `memq`              |
+| `<=`                          | `memv`              |
+| `>=`                          | `member`            |
+| `remainder`                   | `assq`              |
+| `modulo`                      | `assv`              |
+| `apply`                       | `assoc`             |
+| `cons`                        | `caar`              |
+| `car`                         | `cadr`              |
+| `cdr`                         | `cdar`              |
+| `list`                        | `cddr`              |
+| `set!`                        | `caaar`             |
+| `set-car!`                    | `caadr`             |
+| `set-cdr!`                    | `cadar`             |
+| `display`                     | `caddr`             |
+| `error`                       | `cdaar`             |
+| `equal?`                      | `cdadr`             |
+| `eq?`                         | `cddar`             |
+| `number?`                     | `cdddr`             |
+| `symbol?`                     | `caaaar`            |
+| `string?`                     | `caaadr`            |
+| `pair?`                       | `caadar`            |
+| `null?`                       | `caaddr`            |
 |                               | `cadaar`            |
 |                               | `cadadr`            |
 |                               | `caddar`            |
@@ -60,6 +60,7 @@ To try it out, run `cargo run` to compile and enter the REPL, or pass in a file 
 |                               | `cddadr`            |
 |                               | `cdddar`            |
 |                               | `cddddr`            |
+|                               
                                 
                                 
                                 

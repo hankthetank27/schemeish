@@ -328,7 +328,7 @@ fn make_single_let(binding: Expr, body: Vec<Expr>) -> Result<Expr, EvalErr> {
     match binding {
         Expr::Call(binding) => {
             let (param, val) = binding.into_iter().own_two_or_else(|| {
-                EvalErr::InvalidArgs("'let*'. expected parameter and value pair")
+                EvalErr::InvalidArgs("'let*' expression. expected parameter and value pair")
             })?;
 
             Ok(vec![
@@ -348,7 +348,9 @@ fn cond_to_if(exprs: &mut Peekable<std::vec::IntoIter<Expr>>) -> Result<Expr, Ev
         Some(expr) => match expr {
             Expr::Call(expr) => {
                 let (predicate, consequence) = expr.into_iter().own_one_and_rest_or_else(|| {
-                    EvalErr::InvalidArgs("'cond'. clauses expcted two be lists of two values")
+                    EvalErr::InvalidArgs(
+                        "'cond' expression. clauses expcted two be lists of two values",
+                    )
                 })?;
 
                 let consequence = Begin::new(consequence.collect()).to_expr().into_call()?;
@@ -381,7 +383,7 @@ fn try_unzip_list(exprs: Vec<Expr>) -> Result<(Vec<Expr>, Vec<Expr>), EvalErr> {
             match expr_pair {
                 Expr::Call(binding) => {
                     let (param, value) = binding.into_iter().own_two_or_else(|| {
-                        EvalErr::InvalidArgs("'let' expression. expected bindings as pairs")
+                        EvalErr::InvalidArgs("'let' expression. expected parameter and value pair")
                     })?;
                     params.push(param);
                     values.push(value);
